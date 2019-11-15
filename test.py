@@ -6,25 +6,28 @@ from methods import *
 np.set_printoptions(4, suppress=True)
 
 
-CHUNK_SIZE = int(512)
+WINDOW_SIZE = int(512)
+WINDOW_OVERLAP = 0.5
+PARALLEL_WINDOWS = int(1 / (1 - WINDOW_OVERLAP))
+CHUNK_SIZE = int(WINDOW_SIZE * (1 - WINDOW_OVERLAP))
 
 # 0 : no padding, 1: half signal half zeros ...
-FFT_SIZE = 2**0 * CHUNK_SIZE
+FFT_SIZE = 2**0 * WINDOW_SIZE
 
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = 44100
-RECORD_SECONDS = 4
+RECORD_SECONDS = 10
 WAVE_OUTPUT_FILENAME = "voice_modif.wav"
 WAVE_OUTPUT_FILENAME_NO_MODIF = "voice_no_modif.wav"
 
 
 # Size of padding at the end
-pad_size = int(FFT_SIZE - CHUNK_SIZE)
+pad_size = int(FFT_SIZE - WINDOW_SIZE)
 
 print('Padding:', pad_size)
 # number of octave
-n_oct = 5
+n_oct = 4
 
 # Name of notes
 notes_str = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#']
@@ -60,16 +63,34 @@ print("* recording")
 frames = []
 frames_no_modif = []
 
+chunk_array = np.zeros((PARALLEL_WINDOWS, CHUNK_SIZE), dtype = np.int16)
+summed_chunks = np.zeros((PARALLEL_WINDOWS, CHUNK_SIZE), dtype = np.int16)
 
-for i in range(0, int(RATE / CHUNK_SIZE * RECORD_SECONDS)):
+for i in range(0, int((RATE / CHUNK_SIZE) * RECORD_SECONDS)):
     chunk = in_stream.read(CHUNK_SIZE)
     frames_no_modif.append(chunk)
+    chunk = np.frombuffer(chunk, dtype=np.int16)
 
-    processed_chunk = processing(chunk, freq, notes, CHUNK_SIZE, pad_size, notes_name)
+    chunk_array[-1] = chunk
 
-    processed_chunk = processed_chunk.astype(np.int16).tostring()
-    play(out_stream, processed_chunk)
-    frames.append(processed_chunk)
+    window = chunk_array.flatten() # flatten copies the array
+    
+    ### TODO analysis window
+    
+    window = processing(window, freq, notes, WINDOW_SIZE, pad_size, notes_name)
+
+    ### TODO synthesis window
+
+    ### TODO sum chunks
+    summed_chunks = summed_chunks + window.reshape((PARALLEL_WINDOWS, CHUNK_SIZE))
+        
+
+    out_chunk = summed_chunks[0].astype(np.int16).tostring()
+    play(out_stream, out_chunk)
+    frames.append(out_chunk)
+    chunk_array[:-1] = chunk_array[1:]                    
+    summed_chunks[:-1] = summed_chunks[1:]
+    summed_chunks[-1] = np.zeros((CHUNK_SIZE,), dtype = np.int16)
 
 print("* done recording")
 
