@@ -7,7 +7,7 @@ np.set_printoptions(4, suppress=True)
 
 
 CHUNK_SIZE = int(512)
-
+OVERLAP = 1/2
 # 0 : no padding, 1: half signal half zeros ...
 FFT_SIZE = 2**0 * CHUNK_SIZE
 
@@ -52,7 +52,6 @@ freq = np.fft.rfftfreq(FFT_SIZE, 1.0/RATE)
 p = pyaudio.PyAudio()
 
 in_stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK_SIZE)
-
 out_stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, output=True, frames_per_buffer=CHUNK_SIZE)
 
 print("* recording")
