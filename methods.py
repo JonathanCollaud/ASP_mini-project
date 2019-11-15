@@ -3,7 +3,7 @@ import wave
 import numpy as np
 from scipy import interpolate as interp
 
-THRESHOLD = 15
+THRESHOLD = 50
 
 def spline(x, y, x_new):
     tck_r = interp.splrep(x, np.real(y), s=0)
@@ -104,7 +104,7 @@ def processing(data, freq, notes, chunk_size, pad_size, notes_name):
 def shift_freq(y, freq, shift_f):
     # Interpolation: suppose you have correct pitch (freq_x = shift_f * freq) and resample to freq scale
     # to then do inverse fourier transform
-    y_new = interp1d_polar(shift_f * freq, y, freq)
+    y_new = interp1d(shift_f * freq, y, freq)
     # y_new = y
     return y_new
 
