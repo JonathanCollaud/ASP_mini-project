@@ -3,6 +3,7 @@ import wave
 import numpy as np
 from scipy import interpolate as interp
 
+THRESHOLD = 15
 
 def spline(x, y, x_new):
     tck_r = interp.splrep(x, np.real(y), s=0)
@@ -68,29 +69,35 @@ def shift_factor(y, freq, notes, notes_name):
 
 def processing(data, freq, notes, chunk_size, pad_size, notes_name):
     x = np.frombuffer(data, dtype=np.int16)
-    # Zero Padding:
-    x = np.pad(x, (0, pad_size), 'constant', constant_values=(0, 0))
-    x = x.astype(np.int16)
+    if not silence(x, THRESHOLD):
 
-    # Real fft
-    y = np.fft.rfft(x)
+        # Zero Padding:
+        x = np.pad(x, (0, pad_size), 'constant', constant_values=(0, 0))
+        x = x.astype(np.int16)
 
-    # Compute shift factor
-    shift_f = shift_factor(y, freq, notes, notes_name)
-    #print(shift_f)
+        # Real fft
+        y = np.fft.rfft(x)
 
-    # shift_f = 4/5
-    # Shift frequency spectrum
-    y_new = shift_freq(y, freq, shift_f)
+        # Compute shift factor
+        shift_f = shift_factor(y, freq, notes, notes_name)
+        #print(shift_f)
 
-    # y_new = y
-    # Inverse FFT and take real part
-    out = np.fft.irfft(y_new)
+        # shift_f = 4/5
+        # Shift frequency spectrum
+        y_new = shift_freq(y, freq, shift_f)
 
-    # Remove zero padding
-    out = out[:chunk_size]
+        # y_new = y
+        # Inverse FFT and take real part
+        out = np.fft.irfft(y_new)
 
-    out = np.real(out)
+        # Remove zero padding
+        out = out[:chunk_size]
+
+        out = np.real(out)
+
+    else:
+        out = x
+
     return out
 
 
@@ -123,3 +130,8 @@ def C2P(x):
     :return: 2D array with norm and phase
     """
     return np.abs(x), np.angle(x)
+
+
+def silence(x, silence_threshold):
+    amp_max = np.max(np.abs(x))
+    return amp_max < silence_threshold
