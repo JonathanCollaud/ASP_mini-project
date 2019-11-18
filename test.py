@@ -6,49 +6,33 @@ from methods import *
 np.set_printoptions(4, suppress=True)
 
 
-
+KEY = 'D'
 WINDOW_SIZE = int(512)
-WINDOW_OVERLAP = 0.5
+WINDOW_OVERLAP = 0.75
 PARALLEL_WINDOWS = int(1 / (1 - WINDOW_OVERLAP))
 CHUNK_SIZE = int(WINDOW_SIZE * (1 - WINDOW_OVERLAP))
 
 # 0 : no padding, 1: half signal half zeros ...
-FFT_SIZE = 2**0 * WINDOW_SIZE
+FFT_SIZE = 2**4 * WINDOW_SIZE
 
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = 44100
-RECORD_SECONDS = 10
+RECORD_SECONDS = 5
 WAVE_OUTPUT_FILENAME = "voice_modif.wav"
 WAVE_OUTPUT_FILENAME_NO_MODIF = "voice_no_modif.wav"
+
+notes, notes_str = build_notes_vector(KEY, 4)
+
+w_a = window(WINDOW_SIZE, WINDOW_OVERLAP, 'sine')
+w_s = window(WINDOW_SIZE, WINDOW_OVERLAP, 'sine')
 
 
 # Size of padding at the end
 pad_size = int(FFT_SIZE - WINDOW_SIZE)
 
 print('Padding:', pad_size)
-# number of octave
-n_oct = 4
 
-# Name of notes
-notes_str = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#']
-
-# If we accept only A minor (C major) notes
-notes_accepted = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
-# gives this table
-n_accepted_notes = np.array([0, 2, 3, 5, 7, 8, 10])
-n_extended = np.array([])
-
-for i in range(n_oct+1):
-    n_extended = np.concatenate((n_extended, 12.0 * i + n_accepted_notes), axis=0)
-
-notes_name = []
-for i in range(n_oct+1):
-    notes_name = notes_name + [n + str(i+1) for n in notes_accepted]
-
-
-# Notes for our table of notes
-notes = np.asarray(55.0*2.0**(n_extended/12.0))
 
 # Frequencies of real fft
 freq = np.fft.rfftfreq(FFT_SIZE, 1.0/RATE)
@@ -63,23 +47,26 @@ print("* recording")
 frames = []
 frames_no_modif = []
 
-chunk_array = np.zeros((PARALLEL_WINDOWS, CHUNK_SIZE), dtype = np.int16)
-summed_chunks = np.zeros((PARALLEL_WINDOWS, CHUNK_SIZE), dtype = np.int16)
+chunk_array = np.zeros((PARALLEL_WINDOWS, CHUNK_SIZE), dtype=np.int16)
+summed_chunks = np.zeros((PARALLEL_WINDOWS, CHUNK_SIZE), dtype=np.int16)
 
 for i in range(0, int((RATE / CHUNK_SIZE) * RECORD_SECONDS)):
-    chunk = in_stream.read(CHUNK_SIZE)
+    chunk = in_stream.read(CHUNK_SIZE, exception_on_overflow=False)
     frames_no_modif.append(chunk)
     chunk = np.frombuffer(chunk, dtype=np.int16)
 
     chunk_array[-1] = chunk
+    # Flatten copies the array
+    window = chunk_array.flatten()
 
-    window = chunk_array.flatten() # flatten copies the array
-    
-    ### TODO analysis window
-    
-    window = processing(window, freq, notes, WINDOW_SIZE, pad_size, notes_name)
+    # Analysis window
+    window = np.asarray(w_a * window, dtype=np.int16)
 
-    ### TODO synthesis window
+    # Processing
+    window = processing(window, freq, notes, WINDOW_SIZE, pad_size, notes_str)
+
+    # Synthesis window
+    window = np.asarray(w_s * window, dtype=np.int16)
 
     ### TODO sum chunks
     summed_chunks = summed_chunks + window.reshape((PARALLEL_WINDOWS, CHUNK_SIZE))

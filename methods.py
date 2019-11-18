@@ -5,6 +5,7 @@ from scipy import interpolate as interp
 
 THRESHOLD = 50
 
+
 def spline(x, y, x_new):
     tck_r = interp.splrep(x, np.real(y), s=0)
     tck_i = interp.splrep(x, np.imag(y), s=0)
@@ -67,8 +68,7 @@ def shift_factor(y, freq, notes, notes_name):
     return shift_f
 
 
-def processing(data, freq, notes, chunk_size, pad_size, notes_name):
-    x = np.frombuffer(data, dtype=np.int16)
+def processing(x, freq, notes, chunk_size, pad_size, notes_name):
     if not silence(x, THRESHOLD):
 
         # Zero Padding:
@@ -135,3 +135,64 @@ def C2P(x):
 def silence(x, silence_threshold):
     amp_max = np.max(np.abs(x))
     return amp_max < silence_threshold
+
+
+def window(w_size, overlap=0.5, type='sine'):
+
+    if overlap==0.75:
+        overlap_factor = 1.0/np.sqrt(2)
+    elif overlap==0.5:
+        overlap_factor = 1.0
+
+    else:
+        raise ValueError('Not valid overlap, should be 0.5 of 0.75')
+
+    n = np.arange(w_size)
+
+    if type=='sine':
+        w = overlap_factor * np.sin((n+0.5)*np.pi/w_size)
+
+    elif type=='hann':
+        w = overlap_factor * np.sin((n+0.5)*np.pi/w_size)**2
+
+    elif type=='rect':
+        w = overlap_factor * np.ones(w_size)
+
+    else:
+        raise ValueError('Not valid window type')
+
+    return w
+
+
+def build_notes_vector(key, n_oct):
+    # Name of notes
+    if 'b' in key:
+        notes_str = ['A', 'Bb', 'B', 'C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab']
+        start_idx = notes_str.index(key)
+        notes_str = np.asarray(notes_str)
+    else:
+        notes_str = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#']
+        start_idx = notes_str.index(key)
+        notes_str = np.asarray(notes_str)
+
+    key_notes = np.sort(np.mod(start_idx + np.array([0, 2, 4, 5, 7, 9, 11]), 12))
+
+    # key_notes_str = notes_str[np.mod(key_notes, 12)]
+
+    n_extended = np.array([])
+
+    for i in range(n_oct + 1):
+        n_extended = np.concatenate((n_extended, 12 * i + key_notes), axis=0)
+
+    all_notes_str_ex = []
+
+    for i in range(n_oct + 1):
+        all_notes_str_ex = all_notes_str_ex + [n + str(i + 1) for n in notes_str]
+
+    all_notes_str_ex = np.asarray(all_notes_str_ex)
+    notes_str_ex = all_notes_str_ex[n_extended.astype(np.int8)]
+    notes_str_ex = np.asarray(notes_str_ex)
+
+    # Notes for our table of notes, starting at 55Hz (A1)
+    notes = np.asarray(55.0 * 2.0 ** (n_extended / 12.0))
+    return notes, notes_str_ex
