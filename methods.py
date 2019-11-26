@@ -2,7 +2,9 @@ import pyaudio
 import wave
 import numpy as np
 from scipy import interpolate as interp
-
+import matplotlib.pyplot as plt
+import matplotlib.animation as anim
+#plt.rcParams['animation.ffmpeg_path'] = ''
 THRESHOLD = 50
 
 
@@ -22,7 +24,7 @@ def spline_polar(x, y, x_new):
     tck_i = interp.splrep(x, phase, s=0)
 
     y_new_amp = interp.splev(x_new, tck_r, der=0)
-    y_new_phase= interp.splev(x_new, tck_i, der=0)
+    y_new_phase = interp.splev(x_new, tck_i, der=0)
 
     y_new = P2C(y_new_amp, y_new_phase)
     return y_new
@@ -50,25 +52,25 @@ def shift_factor(y, freq, notes, notes_name):
     :param notes: notes table containing all notes (defined at beginning of code
     :return: shift factor
     """
-
-    idx_max = np.argmax(y*np.conj(y))
+    range_min = np.argmin(np.abs(freq-notes[0]))
+    range_max = np.argmin(np.abs(freq - notes[-1]))
+    idx_max = np.argmax(y[range_min:range_max]*np.conj(y[range_min:range_max]))
 
     # if measured freq is 0, be careful, do not divide by 0
-    if idx_max != 0:
-        pitch = freq[idx_max]
-    else:
-        pitch = freq[1]
+    pitch = freq[range_min + idx_max]
 
     closest_note_idx = np.argmin(np.abs(pitch-notes))
     closest_note = notes[closest_note_idx]
-    print("Closest note: ", notes_name[closest_note_idx], end='\r')
-
+    print("Closest note: ", notes_name[closest_note_idx])#, end='\r')
+    #print(pitch)
+    #print(closest_note)
     # Computation of shift factor: coeff to apply to frequency of input signal
     shift_f = closest_note / pitch
+
     return shift_f
 
 
-def processing(x, freq, notes, chunk_size, pad_size, notes_name):
+def processing(x, freq, notes, window_size, pad_size, notes_name):
     if not silence(x, THRESHOLD):
 
         # Zero Padding:
@@ -80,7 +82,7 @@ def processing(x, freq, notes, chunk_size, pad_size, notes_name):
 
         # Compute shift factor
         shift_f = shift_factor(y, freq, notes, notes_name)
-        #print(shift_f)
+        print(shift_f)
 
         # shift_f = 4/5
         # Shift frequency spectrum
@@ -91,21 +93,26 @@ def processing(x, freq, notes, chunk_size, pad_size, notes_name):
         out = np.fft.irfft(y_new)
 
         # Remove zero padding
-        out = out[:chunk_size]
+        out = out[:window_size]
 
         out = np.real(out)
 
     else:
         out = x
+        y = np.zeros(freq.shape[0])
 
-    return out
+    return out, y
 
 
 def shift_freq(y, freq, shift_f):
     # Interpolation: suppose you have correct pitch (freq_x = shift_f * freq) and resample to freq scale
     # to then do inverse fourier transform
     y_new = interp1d(shift_f * freq, y, freq)
-    # y_new = y
+
+    # Interpolation outside the freq range put to 0
+    if shift_f < 1.0:
+        idx_out_range = freq/shift_f > freq[-1]
+        y_new[idx_out_range] = 0
     return y_new
 
 
@@ -196,3 +203,25 @@ def build_notes_vector(key, n_oct):
     # Notes for our table of notes, starting at 55Hz (A1)
     notes = np.asarray(55.0 * 2.0 ** (n_extended / 12.0))
     return notes, notes_str_ex
+
+
+def plot_spectra(freq, spectra, window_size, rate, overlap):
+    fig = plt.figure()
+    line, = plt.semilogx([], [])
+    plt.xlim(10, 20000)
+    max_spectra = np.max(spectra)
+    plt.ylim(0, max_spectra)
+
+    def init():
+        line.set_data(freq, np.zeros_like(freq))
+        return line,
+
+    def animate(i):
+
+        line.set_ydata(spectra[int(1/(1-overlap)*i)])
+        return line,
+
+    ani = anim.FuncAnimation(fig, animate, init_func=init, frames=int(spectra.shape[0]*(1-overlap)),
+                             blit=True, repeat=False)
+
+    ani.save('the_movie.mp4', writer='ffmpeg', fps=30)

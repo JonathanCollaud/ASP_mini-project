@@ -3,10 +3,11 @@ import wave
 import numpy as np
 from methods import *
 
+
 np.set_printoptions(4, suppress=True)
 
 
-KEY = 'D'
+KEY = 'E'
 WINDOW_SIZE = int(512)
 WINDOW_OVERLAP = 0.75
 PARALLEL_WINDOWS = int(1 / (1 - WINDOW_OVERLAP))
@@ -18,7 +19,7 @@ FFT_SIZE = 2**4 * WINDOW_SIZE
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = 44100
-RECORD_SECONDS = 5
+RECORD_SECONDS = 3
 WAVE_OUTPUT_FILENAME = "voice_modif.wav"
 WAVE_OUTPUT_FILENAME_NO_MODIF = "voice_no_modif.wav"
 
@@ -28,10 +29,16 @@ w_a = window(WINDOW_SIZE, WINDOW_OVERLAP, 'sine')
 w_s = window(WINDOW_SIZE, WINDOW_OVERLAP, 'sine')
 
 
-# Size of padding at the end
 pad_size = int(FFT_SIZE - WINDOW_SIZE)
+# Print info
+print('Rate:', RATE)
+print('Window:', WINDOW_SIZE)
+print('FFT:', FFT_SIZE)
+print('Overlap:', WINDOW_OVERLAP*100, '%')
+print('Chunk:', CHUNK_SIZE)
+print('Key:', KEY)
+print('Recording time:', RECORD_SECONDS, 's')
 
-print('Padding:', pad_size)
 
 
 # Frequencies of real fft
@@ -42,7 +49,6 @@ p = pyaudio.PyAudio()
 in_stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK_SIZE)
 out_stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, output=True, frames_per_buffer=CHUNK_SIZE)
 
-print("* recording")
 
 frames = []
 frames_no_modif = []
@@ -50,6 +56,10 @@ frames_no_modif = []
 chunk_array = np.zeros((PARALLEL_WINDOWS, CHUNK_SIZE), dtype=np.int16)
 summed_chunks = np.zeros((PARALLEL_WINDOWS, CHUNK_SIZE), dtype=np.int16)
 
+# Array to store the spectra (to visualize)
+spectra = np.empty((int((RATE / CHUNK_SIZE) * RECORD_SECONDS), freq.shape[0]))
+
+print("* recording", flush=True)
 for i in range(0, int((RATE / CHUNK_SIZE) * RECORD_SECONDS)):
     chunk = in_stream.read(CHUNK_SIZE, exception_on_overflow=False)
     frames_no_modif.append(chunk)
@@ -61,9 +71,11 @@ for i in range(0, int((RATE / CHUNK_SIZE) * RECORD_SECONDS)):
 
     # Analysis window
     window = np.asarray(w_a * window, dtype=np.int16)
-
     # Processing
-    window = processing(window, freq, notes, WINDOW_SIZE, pad_size, notes_str)
+    window, y = processing(window, freq, notes, WINDOW_SIZE, pad_size, notes_str)
+
+    # Store spectrum
+    spectra[i, :] = np.abs(y)
 
     # Synthesis window
     window = np.asarray(w_s * window, dtype=np.int16)
@@ -79,7 +91,7 @@ for i in range(0, int((RATE / CHUNK_SIZE) * RECORD_SECONDS)):
     summed_chunks[:-1] = summed_chunks[1:]
     summed_chunks[-1] = np.zeros((CHUNK_SIZE,), dtype = np.int16)
 
-print("* done recording")
+print("* done recording", flush=True)
 
 in_stream.stop_stream()
 in_stream.close()
@@ -100,3 +112,5 @@ wf.setsampwidth(p.get_sample_size(FORMAT))
 wf.setframerate(RATE)
 wf.writeframes(b''.join(frames_no_modif))
 wf.close()
+
+#plot_spectra(freq, spectra, WINDOW_SIZE, RATE, WINDOW_OVERLAP)
