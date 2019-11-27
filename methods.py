@@ -3,7 +3,7 @@ import wave
 import numpy as np
 from scipy import interpolate as interp
 import matplotlib.pyplot as plt
-import matplotlib.animation as anim
+import matplotlib.animation as anim 
 #plt.rcParams['animation.ffmpeg_path'] = ''
 THRESHOLD = 50
 
@@ -52,18 +52,17 @@ def shift_factor(y, freq, notes, notes_name):
     :param notes: notes table containing all notes (defined at beginning of code
     :return: shift factor
     """
-    range_min = np.argmin(np.abs(freq-notes[0]))
+    range_min = np.argmin(np.abs(freq - notes[0]))
     range_max = np.argmin(np.abs(freq - notes[-1]))
     idx_max = np.argmax(y[range_min:range_max]*np.conj(y[range_min:range_max]))
 
     # if measured freq is 0, be careful, do not divide by 0
-    pitch = freq[range_min + idx_max]
+    polyfit = np.polyfit(freq[range_min + idx_max - 1 : range_min + idx_max + 2], np.abs(y)[range_min + idx_max - 1 : range_min + idx_max + 2], 2)
+    pitch = - polyfit[1] / (2 * polyfit[0])
 
     closest_note_idx = np.argmin(np.abs(pitch-notes))
     closest_note = notes[closest_note_idx]
-    print("Closest note: ", notes_name[closest_note_idx])#, end='\r')
-    #print(pitch)
-    #print(closest_note)
+    print("Closest note: ", notes_name[closest_note_idx])
     # Computation of shift factor: coeff to apply to frequency of input signal
     shift_f = closest_note / pitch
 
@@ -82,9 +81,7 @@ def processing(x, freq, notes, window_size, pad_size, notes_name):
 
         # Compute shift factor
         shift_f = shift_factor(y, freq, notes, notes_name)
-        print(shift_f)
 
-        # shift_f = 4/5
         # Shift frequency spectrum
         y_new = shift_freq(y, freq, shift_f)
 
@@ -150,7 +147,6 @@ def window(w_size, overlap=0.5, type='sine'):
         overlap_factor = 1.0/np.sqrt(2)
     elif overlap==0.5:
         overlap_factor = 1.0
-
     else:
         raise ValueError('Not valid overlap, should be 0.5 of 0.75')
 
