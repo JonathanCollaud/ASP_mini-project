@@ -7,7 +7,7 @@ from methods import *
 np.set_printoptions(4, suppress=True)
 
 
-KEY = 'E'
+KEY = 'C'
 WINDOW_SIZE = int(512)
 WINDOW_OVERLAP = 0.75
 PARALLEL_WINDOWS = int(1 / (1 - WINDOW_OVERLAP))
@@ -89,7 +89,7 @@ for i in range(0, int((RATE / CHUNK_SIZE) * RECORD_SECONDS)):
     frames.append(out_chunk)
     chunk_array[:-1] = chunk_array[1:]                    
     summed_chunks[:-1] = summed_chunks[1:]
-    summed_chunks[-1] = np.zeros((CHUNK_SIZE,), dtype = np.int16)
+    summed_chunks[-1] = np.zeros((CHUNK_SIZE,), dtype=np.int16)
 
 print("* done recording", flush=True)
 

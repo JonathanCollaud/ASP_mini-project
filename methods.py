@@ -52,16 +52,17 @@ def shift_factor(y, freq, notes, notes_name):
     :param notes: notes table containing all notes (defined at beginning of code
     :return: shift factor
     """
-    range_min = np.argmin(np.abs(freq-notes[0]))
+    range_min = np.argmin(np.abs(freq - notes[0]))
     range_max = np.argmin(np.abs(freq - notes[-1]))
     idx_max = np.argmax(y[range_min:range_max]*np.conj(y[range_min:range_max]))
 
     # if measured freq is 0, be careful, do not divide by 0
-    pitch = freq[range_min + idx_max]
+    polyfit = np.polyfit(freq[range_min + idx_max - 1: range_min + idx_max + 2], np.abs(y)[range_min + idx_max - 1 : range_min + idx_max + 2], 2)
+    pitch = - polyfit[1] / (2 * polyfit[0])
 
     closest_note_idx = np.argmin(np.abs(pitch-notes))
     closest_note = notes[closest_note_idx]
-    print("Closest note: ", notes_name[closest_note_idx])#, end='\r')
+    #print("Closest note: ", notes_name[closest_note_idx])#, end='\r')
     #print(pitch)
     #print(closest_note)
     # Computation of shift factor: coeff to apply to frequency of input signal
@@ -70,32 +71,41 @@ def shift_factor(y, freq, notes, notes_name):
     return shift_f
 
 
-def processing(x, freq, notes, window_size, pad_size, notes_name):
+def processing(x, freq, notes, window_size, pad_size, notes_name, i, plot=False):
     if not silence(x, THRESHOLD):
 
+
         # Zero Padding:
-        x = np.pad(x, (0, pad_size), 'constant', constant_values=(0, 0))
-        x = x.astype(np.int16)
+        x = np.pad(x, (int(pad_size/2), int(pad_size/2)), 'constant', constant_values=(0, 0))
 
         # Real fft
         y = np.fft.rfft(x)
 
         # Compute shift factor
         shift_f = shift_factor(y, freq, notes, notes_name)
-        print(shift_f)
+        #print(shift_f)
 
-        # shift_f = 4/5
+        #shift_f = 0.8
         # Shift frequency spectrum
         y_new = shift_freq(y, freq, shift_f)
 
-        # y_new = y
         # Inverse FFT and take real part
         out = np.fft.irfft(y_new)
 
         # Remove zero padding
-        out = out[:window_size]
+        out = out[int(pad_size/2):int(pad_size/2)+window_size]
 
         out = np.real(out)
+
+        if plot:
+            if i % 6 == 0:
+
+                fig, (ax1, ax2) = plt.subplots(2, sharex=True, sharey=True)
+                n_plot = 500
+                ax1.plot(freq[:n_plot], np.abs(y[:n_plot]))
+                ax2.plot(freq[:n_plot], np.abs(y_new[:n_plot]))
+                ax1.set_title('plot window')
+                plt.draw()
 
     else:
         out = x
@@ -107,7 +117,7 @@ def processing(x, freq, notes, window_size, pad_size, notes_name):
 def shift_freq(y, freq, shift_f):
     # Interpolation: suppose you have correct pitch (freq_x = shift_f * freq) and resample to freq scale
     # to then do inverse fourier transform
-    y_new = interp1d(shift_f * freq, y, freq)
+    y_new = spline(shift_f * freq, y, freq)
 
     # Interpolation outside the freq range put to 0
     if shift_f < 1.0:
@@ -150,9 +160,11 @@ def window(w_size, overlap=0.5, type='sine'):
         overlap_factor = 1.0/np.sqrt(2)
     elif overlap==0.5:
         overlap_factor = 1.0
-
+    elif overlap==0.0:
+        w = np.ones(w_size)
+        return w
     else:
-        raise ValueError('Not valid overlap, should be 0.5 of 0.75')
+        raise ValueError('Not valid overlap, should be 0, 0.5 or 0.75')
 
     n = np.arange(w_size)
 
@@ -164,6 +176,9 @@ def window(w_size, overlap=0.5, type='sine'):
 
     elif type=='rect':
         w = overlap_factor * np.ones(w_size)
+
+    elif type=='hamming':
+        w = np.hamming(w_size)
 
     else:
         raise ValueError('Not valid window type')
