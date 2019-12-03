@@ -62,56 +62,59 @@ def shift_factor(y, freq, notes, notes_name):
 
     closest_note_idx = np.argmin(np.abs(pitch-notes))
     closest_note = notes[closest_note_idx]
-    #print("Closest note: ", notes_name[closest_note_idx])#, end='\r')
-    #print(pitch)
-    #print(closest_note)
+    print("Closest note: ", notes_name[closest_note_idx])#, end='\r')
+    print(pitch)
+    print(closest_note)
     # Computation of shift factor: coeff to apply to frequency of input signal
     shift_f = closest_note / pitch
 
-    return shift_f
+    return shift_f, pitch
 
 
-def processing(x, freq, notes, window_size, pad_size, notes_name, i, plot=False):
+def processing(x, freq, Z, window_size, step, rate, pad_size, notes, notes_name, i, plot=False):
     if not silence(x, THRESHOLD):
 
-
         # Zero Padding:
-        x = np.pad(x, (int(pad_size/2), int(pad_size/2)), 'constant', constant_values=(0, 0))
+        x = np.pad(x, (0, pad_size), 'constant', constant_values=(0, 0))
 
         # Real fft
         y = np.fft.rfft(x)
 
         # Compute shift factor
-        shift_f = shift_factor(y, freq, notes, notes_name)
-        #print(shift_f)
+        shift_f, pitch = shift_factor(y, freq, notes, notes_name)
+        print(shift_f)
 
-        #shift_f = 0.8
         # Shift frequency spectrum
         y_new = shift_freq(y, freq, shift_f)
+
+        # Maintining phase coherency
+        delta_omega = 2 * np.pi * pitch * (shift_f-1)
+        Z = Z * np.exp(1j * delta_omega * step/rate)
+        y_new = Z * y_new
 
         # Inverse FFT and take real part
         out = np.fft.irfft(y_new)
 
         # Remove zero padding
-        out = out[int(pad_size/2):int(pad_size/2)+window_size]
+        out = out[:window_size]
 
         out = np.real(out)
 
         if plot:
-            if i % 6 == 0:
+            if i % 50 == 0:
 
                 fig, (ax1, ax2) = plt.subplots(2, sharex=True, sharey=True)
-                n_plot = 500
-                ax1.plot(freq[:n_plot], np.abs(y[:n_plot]))
-                ax2.plot(freq[:n_plot], np.abs(y_new[:n_plot]))
+                n_plot = 250
+                ax1.plot(freq, np.abs(y))
+                ax2.plot(freq, np.abs(y_new))
                 ax1.set_title('plot window')
                 plt.draw()
 
     else:
         out = x
-        y = np.zeros(freq.shape[0])
+        Z = 1.0+0.0j
 
-    return out, y
+    return out, Z
 
 
 def shift_freq(y, freq, shift_f):

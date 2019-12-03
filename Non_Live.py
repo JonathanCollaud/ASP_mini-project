@@ -8,9 +8,11 @@ record = False
 
 KEY = 'C'
 WINDOW_SIZE = int(8192)
-WINDOW_OVERLAP = 0.5
+WINDOW_OVERLAP = 0.75
 PARALLEL_WINDOWS = int(1 / (1 - WINDOW_OVERLAP))
 CHUNK_SIZE = int(WINDOW_SIZE * (1 - WINDOW_OVERLAP))
+w_a = window(WINDOW_SIZE, WINDOW_OVERLAP, 'rect')
+w_s = window(WINDOW_SIZE, WINDOW_OVERLAP, 'hann')
 
 # 0 : no padding, 1: half signal half zeros ...
 FFT_SIZE = 2**0 * WINDOW_SIZE
@@ -23,9 +25,6 @@ WAVE_OUTPUT_FILENAME = "voice_modif.wav"
 WAVE_OUTPUT_FILENAME_NO_MODIF = "voice_no_modif.wav"
 
 notes, notes_str = build_notes_vector(KEY, 4)
-
-w_a = window(WINDOW_SIZE, WINDOW_OVERLAP, 'sine')
-w_s = window(WINDOW_SIZE, WINDOW_OVERLAP, 'sine')
 
 
 pad_size = int(FFT_SIZE - WINDOW_SIZE)
@@ -64,6 +63,7 @@ else:
     f = 233
     input = 20000 * np.sin(2 * np.pi * f * n / RATE)
     #input = n * 100
+    input = 10000*np.ones(RATE*RECORD_SECONDS)
     input = input.astype(np.int16)
 
 
@@ -78,25 +78,27 @@ spectra = np.empty((int((RATE / CHUNK_SIZE) * RECORD_SECONDS), freq.shape[0]))
 output_safe = np.zeros_like(output)
 
 for i in range(0, int((RATE / CHUNK_SIZE) * RECORD_SECONDS)):
+
     chunk = input[i*CHUNK_SIZE:(i+1)*CHUNK_SIZE].copy()
+    print(chunk.shape)
     chunk_array[-1] = chunk.copy()
 
     # Flatten copies the array
-    window = chunk_array.flatten()
+    curr_window = chunk_array.flatten()
 
     # Analysis window
-    window = np.asarray(w_a * window)
+    curr_window = np.asarray(w_a * curr_window)
     # Processing
-    window, y = processing(window, freq, notes, WINDOW_SIZE, pad_size, notes_str, i, plot=True)
+    #curr_window, y = processing(curr_window, freq, notes, WINDOW_SIZE, pad_size, notes_str, i, plot=True)
 
     # Store spectrum
     #spectra[i, :] = np.abs(y)
 
     # Synthesis window
-    window = np.asarray(w_s * window)
+    curr_window = np.asarray(w_s * curr_window)
 
     ### TODO sum chunks
-    summed_chunks = (summed_chunks + window.reshape((PARALLEL_WINDOWS, CHUNK_SIZE))).copy()
+    summed_chunks = (summed_chunks + curr_window.reshape((PARALLEL_WINDOWS, CHUNK_SIZE))).copy()
 
     out_chunk = summed_chunks[0].copy().astype(np.int16)
 
@@ -104,7 +106,7 @@ for i in range(0, int((RATE / CHUNK_SIZE) * RECORD_SECONDS)):
 
     chunk_array[:-1] = chunk_array[1:].copy()
     summed_chunks[:-1] = summed_chunks[1:].copy()
-    summed_chunks[-1] = np.zeros((CHUNK_SIZE,)).copy().astype(np.int16)
+    summed_chunks[-1] = np.zeros((CHUNK_SIZE,))
 
 """
 n_vect = np.arange(size)
@@ -134,9 +136,9 @@ output_spec = np.abs(np.fft.rfft(output))
 freq_tot = np.fft.rfftfreq(input.shape[0], 1.0/RATE)
 
 fig, (ax1, ax2) = plt.subplots(2, sharex=True, sharey=True)
-n_plot = 4000
-ax1.plot(freq_tot, input_spec)
-ax2.plot(freq_tot, output_spec)
+n_plot = 1000
+ax1.plot(freq_tot[100:n_plot], input_spec[100:n_plot])
+ax2.plot(freq_tot[100:n_plot], output_spec[100:n_plot])
 ax1.set_title('Plot tot')
 plt.draw()
 
