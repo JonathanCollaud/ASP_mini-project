@@ -3,7 +3,7 @@ import wave
 import numpy as np
 from scipy import interpolate as interp
 import matplotlib.pyplot as plt
-import matplotlib.animation as anim
+import matplotlib.animation as anim 
 #plt.rcParams['animation.ffmpeg_path'] = ''
 THRESHOLD = 50
 
@@ -58,13 +58,13 @@ def shift_factor(y, freq, notes, notes_name):
 
     # if measured freq is 0, be careful, do not divide by 0
     polyfit = np.polyfit(freq[range_min + idx_max - 1: range_min + idx_max + 2], np.abs(y)[range_min + idx_max - 1 : range_min + idx_max + 2], 2)
+
     pitch = - polyfit[1] / (2 * polyfit[0])
 
     closest_note_idx = np.argmin(np.abs(pitch-notes))
     closest_note = notes[closest_note_idx]
-    print("Closest note: ", notes_name[closest_note_idx])#, end='\r')
-    print(pitch)
-    print(closest_note)
+
+    print("Closest note: ", notes_name[closest_note_idx])
     # Computation of shift factor: coeff to apply to frequency of input signal
     shift_f = closest_note / pitch
 
@@ -82,7 +82,6 @@ def processing(x, freq, Z, window_size, step, rate, pad_size, notes, notes_name,
 
         # Compute shift factor
         shift_f, pitch = shift_factor(y, freq, notes, notes_name)
-        print(shift_f)
 
         # Shift frequency spectrum
         y_new = shift_freq(y, freq, shift_f)

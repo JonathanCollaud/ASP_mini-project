@@ -16,6 +16,8 @@ CHUNK_SIZE = int(WINDOW_SIZE * (1 - WINDOW_OVERLAP))
 # 0 : no padding, 1: half signal half zeros ...
 FFT_SIZE = 2**4 * WINDOW_SIZE
 
+PURE_SIGNAL = False
+
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = 44100
@@ -27,7 +29,6 @@ notes, notes_str = build_notes_vector(KEY, 4)
 
 w_a = window(WINDOW_SIZE, WINDOW_OVERLAP, 'sine')
 w_s = window(WINDOW_SIZE, WINDOW_OVERLAP, 'sine')
-
 
 pad_size = int(FFT_SIZE - WINDOW_SIZE)
 # Print info
@@ -58,12 +59,17 @@ summed_chunks = np.zeros((PARALLEL_WINDOWS, CHUNK_SIZE), dtype=np.int16)
 
 # Array to store the spectra (to visualize)
 spectra = np.empty((int((RATE / CHUNK_SIZE) * RECORD_SECONDS), freq.shape[0]))
+j = np.arange(RATE * RECORD_SECONDS)
+signal = np.array(10000 * np.sin(2 * np.pi * 466 * j / RATE), dtype=np.int16)
 
 print("* recording", flush=True)
 for i in range(0, int((RATE / CHUNK_SIZE) * RECORD_SECONDS)):
-    chunk = in_stream.read(CHUNK_SIZE, exception_on_overflow=False)
+    if PURE_SIGNAL:
+        chunk = signal[i * CHUNK_SIZE : (i + 1) * CHUNK_SIZE].copy()
+    else:
+        chunk = in_stream.read(CHUNK_SIZE, exception_on_overflow=False)
+        chunk = np.frombuffer(chunk, dtype=np.int16)
     frames_no_modif.append(chunk)
-    chunk = np.frombuffer(chunk, dtype=np.int16)
 
     chunk_array[-1] = chunk
     # Flatten copies the array
@@ -80,18 +86,19 @@ for i in range(0, int((RATE / CHUNK_SIZE) * RECORD_SECONDS)):
     # Synthesis window
     window = np.asarray(w_s * window, dtype=np.int16)
 
-    ### TODO sum chunks
     summed_chunks = summed_chunks + window.reshape((PARALLEL_WINDOWS, CHUNK_SIZE))
         
 
     out_chunk = summed_chunks[0].astype(np.int16).tostring()
-    play(out_stream, out_chunk)
+    #play(out_stream, out_chunk)
     frames.append(out_chunk)
     chunk_array[:-1] = chunk_array[1:]                    
     summed_chunks[:-1] = summed_chunks[1:]
     summed_chunks[-1] = np.zeros((CHUNK_SIZE,), dtype=np.int16)
 
 print("* done recording", flush=True)
+
+plot_spectra(freq, spectra, WINDOW_SIZE, RATE, WINDOW_OVERLAP)
 
 in_stream.stop_stream()
 in_stream.close()
