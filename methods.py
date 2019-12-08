@@ -3,9 +3,10 @@ import wave
 import numpy as np
 from scipy import interpolate as interp
 import matplotlib.pyplot as plt
-import matplotlib.animation as anim 
+import matplotlib.animation as anim
+from scipy.signal import find_peaks
 #plt.rcParams['animation.ffmpeg_path'] = ''
-THRESHOLD = 50
+THRESHOLD = 200
 
 
 def spline(x, y, x_new):
@@ -46,7 +47,7 @@ def interp1d_polar(x, y, x_new):
 
 
 def shift_factor(y, freq, notes, notes_name):
-    """ Compute the shift factor to apply to frequencies.
+    """ Detect the fundamental frequency and compute the shift factor.
     :param y: Fourier transform (get via np.rfft)
     :param freq: Frequency corresponding to each index (get via np.rfftfreq)
     :param notes: notes table containing all notes (defined at beginning of code
@@ -64,7 +65,7 @@ def shift_factor(y, freq, notes, notes_name):
     closest_note_idx = np.argmin(np.abs(pitch-notes))
     closest_note = notes[closest_note_idx]
 
-    print("Closest note: ", notes_name[closest_note_idx])
+    print("Closest note: ", notes_name[closest_note_idx], flush=True)
     # Computation of shift factor: coeff to apply to frequency of input signal
     shift_f = closest_note / pitch
 
@@ -83,35 +84,53 @@ def processing(x, freq, Z, window_size, step, rate, pad_size, notes, notes_name,
         # Compute shift factor
         shift_f, pitch = shift_factor(y, freq, notes, notes_name)
 
+        # Phase coherency
+        peaks_idx, peaks_prop = find_peaks(np.abs(y[:int(freq.shape[0])]),
+                                           distance=140/(freq[1]-freq[0]),
+                                           prominence=60000)
+
+        if peaks_idx.shape[0]==0:
+            delta_omega = 2*np.pi*pitch * (shift_f - 1)
+
+        else:
+            peaks_freq = freq[peaks_idx]
+            peaks_freq = peaks_freq[:, None]
+            closest_peak_idx = np.argmin(np.abs(freq-peaks_freq), axis=0)
+            closest_peak_freq = peaks_freq[closest_peak_idx]
+            closest_peak_freq = closest_peak_freq[:, 0]
+            delta_omega = 2 * np.pi * closest_peak_freq * (shift_f - 1)
+
+        Z = Z * np.exp(1j * delta_omega * step / rate)
+        y_phase = Z * y
+
         # Shift frequency spectrum
-        y_new = shift_freq(y, freq, shift_f)
+        y_new = shift_freq(y_phase, freq, shift_f)
 
-        # Maintining phase coherency
-        delta_omega = 2 * np.pi * pitch * (shift_f-1)
-        Z = Z * np.exp(1j * delta_omega * step/rate)
-        y_new = Z * y_new
-
-        # Inverse FFT and take real part
+        # Inverse FFT
         out = np.fft.irfft(y_new)
 
         # Remove zero padding
         out = out[:window_size]
 
-        out = np.real(out)
-
         if plot:
-            if i % 50 == 0:
-
+            if i % 20 == 0:
                 fig, (ax1, ax2) = plt.subplots(2, sharex=True, sharey=True)
-                n_plot = 250
+                xmin, xmax, ymin, ymax = 20, 20000, 200, 600000
+                ax1.set_xlim([xmin, xmax])
+                #ax1.set_ylim([ymin, ymax])
+                ax2.set_xlim([xmin, xmax])
+                #ax2.set_ylim([ymin, ymax])
                 ax1.plot(freq, np.abs(y))
+                ax1.plot(freq[peaks_idx], np.abs(y[peaks_idx]), 'o')
                 ax2.plot(freq, np.abs(y_new))
                 ax1.set_title('plot window')
-                plt.draw()
+                plt.show()
+                print('')
 
     else:
         out = x
         Z = 1.0+0.0j
+        print('Silence', flush=True)
 
     return out, Z
 
