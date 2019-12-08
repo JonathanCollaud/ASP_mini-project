@@ -6,8 +6,8 @@ import wavio
 np.set_printoptions(4, suppress=True)
 
 # Define input type: mic, wav or sin
-input_type = 'wav'
-play_sound = False
+input_type = 'mic'
+play_sound = True
 
 KEY = 'Eb'
 WINDOW_SIZE = int(1024)
@@ -16,13 +16,13 @@ PARALLEL_WINDOWS = int(1 / (1 - WINDOW_OVERLAP))
 CHUNK_SIZE = int(WINDOW_SIZE * (1 - WINDOW_OVERLAP))
 
 # 0 : no padding, 1: half signal half zeros ...
-FFT_SIZE = 2**4 * WINDOW_SIZE
+FFT_SIZE = 2**3 * WINDOW_SIZE
 
 
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = 44100
-RECORD_SECONDS = 2
+RECORD_SECONDS = 10
 WAVE_OUTPUT_FILENAME = "voice_modif.wav"
 WAVE_OUTPUT_FILENAME_NO_MODIF = "voice_no_modif.wav"
 
@@ -56,7 +56,7 @@ if input_type=='sin':
     j = np.arange(RATE * RECORD_SECONDS)
     signal = np.array(10000 * np.sin(2 * np.pi * 466 * j / RATE), dtype=np.int16)
 elif input_type=='wav':
-    wavefile_name = 'Maria_Damien_Refrain.wav'
+    wavefile_name = 'Maria_Victor_Refrain.wav'
     wav_obj = wavio.read(wavefile_name)
     signal = wav_obj.data[:, 0]
 elif input_type=='mic':
@@ -96,7 +96,7 @@ for i in range(0, int((RATE / CHUNK_SIZE) * RECORD_SECONDS)):
 
     # Processing
     window, Z = processing(window, freq, Z, WINDOW_SIZE, CHUNK_SIZE, RATE,
-               pad_size, notes, notes_str, i, plot=True)
+               pad_size, notes, notes_str, i, plot=False)
 
     # Synthesis window
     window = np.asarray(w_s * window)

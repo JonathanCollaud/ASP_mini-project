@@ -55,21 +55,27 @@ def shift_factor(y, freq, notes, notes_name):
     """
     range_min = np.argmin(np.abs(freq - notes[0]))
     range_max = np.argmin(np.abs(freq - notes[-1]))
-    idx_max = np.argmax(y[range_min:range_max]*np.conj(y[range_min:range_max]))
+    peaks_idx, peaks_prop = find_peaks(np.abs(y[range_min:]),
+                                       distance=120 / (freq[1] - freq[0]),
+                                     prominence=60000)
+    if peaks_idx.shape[0]>0:
+        idx_fund = peaks_idx[0]
+    else:
+        idx_fund = np.argmax(y[range_min:range_max]*np.conj(y[range_min:range_max]))
 
     # if measured freq is 0, be careful, do not divide by 0
-    polyfit = np.polyfit(freq[range_min + idx_max - 1: range_min + idx_max + 2], np.abs(y)[range_min + idx_max - 1 : range_min + idx_max + 2], 2)
+    polyfit = np.polyfit(freq[range_min + idx_fund - 1: range_min + idx_fund + 2], np.abs(y)[range_min + idx_fund - 1 : range_min + idx_fund + 2], 2)
 
     pitch = - polyfit[1] / (2 * polyfit[0])
 
     closest_note_idx = np.argmin(np.abs(pitch-notes))
     closest_note = notes[closest_note_idx]
 
-    print("Closest note: ", notes_name[closest_note_idx], flush=True)
+    print("Closest note: ", repr(notes_name[closest_note_idx]), end='\r')
     # Computation of shift factor: coeff to apply to frequency of input signal
     shift_f = closest_note / pitch
 
-    return shift_f, pitch
+    return shift_f, peaks_idx, pitch
 
 
 def processing(x, freq, Z, window_size, step, rate, pad_size, notes, notes_name, i, plot=False):
@@ -81,16 +87,11 @@ def processing(x, freq, Z, window_size, step, rate, pad_size, notes, notes_name,
         # Real fft
         y = np.fft.rfft(x)
 
-        # Compute shift factor
-        shift_f, pitch = shift_factor(y, freq, notes, notes_name)
-
-        # Phase coherency
-        peaks_idx, peaks_prop = find_peaks(np.abs(y[:int(freq.shape[0])]),
-                                           distance=140/(freq[1]-freq[0]),
-                                           prominence=60000)
+        # Compute shift factor and peaks positions for phase coherency
+        shift_f, peaks_idx, pitch = shift_factor(y, freq, notes, notes_name)
 
         if peaks_idx.shape[0]==0:
-            delta_omega = 2*np.pi*pitch * (shift_f - 1)
+            delta_omega = 2*np.pi * pitch * (shift_f - 1)
 
         else:
             peaks_freq = freq[peaks_idx]
@@ -124,13 +125,12 @@ def processing(x, freq, Z, window_size, step, rate, pad_size, notes, notes_name,
                 ax1.plot(freq[peaks_idx], np.abs(y[peaks_idx]), 'o')
                 ax2.plot(freq, np.abs(y_new))
                 ax1.set_title('plot window')
-                plt.show()
-                print('')
+                plt.draw()
 
     else:
         out = x
         Z = 1.0+0.0j
-        print('Silence', flush=True)
+        print('Silence', end='\r')
 
     return out, Z
 
@@ -138,7 +138,7 @@ def processing(x, freq, Z, window_size, step, rate, pad_size, notes, notes_name,
 def shift_freq(y, freq, shift_f):
     # Interpolation: suppose you have correct pitch (freq_x = shift_f * freq) and resample to freq scale
     # to then do inverse fourier transform
-    y_new = spline(shift_f * freq, y, freq)
+    y_new = interp1d(shift_f * freq, y, freq)
 
     # Interpolation outside the freq range put to 0
     if shift_f < 1.0:
