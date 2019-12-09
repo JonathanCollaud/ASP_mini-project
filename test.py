@@ -5,12 +5,13 @@ from methods import *
 import wavio
 np.set_printoptions(4, suppress=True)
 
-# Define input type: mic, wav or sin
-input_type = 'mic'
+# Define input type: mic, wav, mp3 or sin
+input_type = 'wav'
 play_sound = True
+plot_end = False
 
-KEY = 'Eb'
-WINDOW_SIZE = int(1024)
+KEY = 'F#'
+WINDOW_SIZE = int(2048)
 WINDOW_OVERLAP = 0.75
 PARALLEL_WINDOWS = int(1 / (1 - WINDOW_OVERLAP))
 CHUNK_SIZE = int(WINDOW_SIZE * (1 - WINDOW_OVERLAP))
@@ -55,13 +56,22 @@ if play_sound:
 if input_type=='sin':
     j = np.arange(RATE * RECORD_SECONDS)
     signal = np.array(10000 * np.sin(2 * np.pi * 466 * j / RATE), dtype=np.int16)
+    n_iter = int(signal.shape[0]/CHUNK_SIZE)
+
+
 elif input_type=='wav':
-    wavefile_name = 'Maria_Victor_Refrain.wav'
+    wavefile_name = 'attention_1_f#.wav'
     wav_obj = wavio.read(wavefile_name)
     signal = wav_obj.data[:, 0]
+    n_iter = int(signal.shape[0]/CHUNK_SIZE)
+
+
 elif input_type=='mic':
     in_stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK_SIZE)
+    n_iter = int((RATE / CHUNK_SIZE) * RECORD_SECONDS)
 
+else:
+    raise ValueError('Wrong input type, should be mic, wav or sin')
 # List for input and output files
 frames = []
 frames_no_modif = []
@@ -78,7 +88,7 @@ Z = 1.0 + 0.0j
 
 print("* start", flush=True)
 
-for i in range(0, int((RATE / CHUNK_SIZE) * RECORD_SECONDS)):
+for i in range(0, n_iter):
     if input_type is not 'mic':
         chunk = signal[i * CHUNK_SIZE: (i + 1) * CHUNK_SIZE].copy()
     else:
@@ -145,19 +155,20 @@ input_signal = np.frombuffer(b''.join(frames_no_modif), dtype=np.int16)
 output_signal = np.frombuffer(b''.join(frames_no_modif), dtype=np.int16)
 
 # Plot figure of frequency domain
-fig, (ax1, ax2) = plt.subplots(2, sharex=True, sharey=True)
-freq_all = np.fft.rfftfreq(input_signal.shape[0], 1.0/RATE)
-ax1.plot(freq_all, np.abs(np.fft.rfft(input_signal)))
-ax2.plot(freq_all, np.abs(np.fft.rfft(output_signal)))
-ax1.set_title('Frequency Domain')
-plt.draw()
+if plot_end:
+    fig, (ax1, ax2) = plt.subplots(2, sharex=True, sharey=True)
+    freq_all = np.fft.rfftfreq(input_signal.shape[0], 1.0/RATE)
+    ax1.plot(freq_all, np.abs(np.fft.rfft(input_signal)))
+    ax2.plot(freq_all, np.abs(np.fft.rfft(output_signal)))
+    ax1.set_title('Frequency Domain')
+    plt.draw()
 
 
-# Plot figure of time domain
-fig, (ax1, ax2) = plt.subplots(2, sharex=True, sharey=True)
-ax1.plot(input_signal)
-ax2.plot(output_signal)
-ax1.set_title('Time domain')
+    # Plot figure of time domain
+    fig, (ax1, ax2) = plt.subplots(2, sharex=True, sharey=True)
+    ax1.plot(input_signal)
+    ax2.plot(output_signal)
+    ax1.set_title('Time domain')
 
-plt.show()
+    plt.show()
 

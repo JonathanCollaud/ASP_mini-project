@@ -3,9 +3,7 @@ import wave
 import numpy as np
 from scipy import interpolate as interp
 import matplotlib.pyplot as plt
-import matplotlib.animation as anim
 from scipy.signal import find_peaks
-#plt.rcParams['animation.ffmpeg_path'] = ''
 THRESHOLD = 200
 
 
@@ -18,31 +16,10 @@ def spline(x, y, x_new):
     return y_new
 
 
-def spline_polar(x, y, x_new):
-    amp, phase = C2P(y)
-
-    tck_r = interp.splrep(x, amp, s=0)
-    tck_i = interp.splrep(x, phase, s=0)
-
-    y_new_amp = interp.splev(x_new, tck_r, der=0)
-    y_new_phase = interp.splev(x_new, tck_i, der=0)
-
-    y_new = P2C(y_new_amp, y_new_phase)
-    return y_new
-
-
 def interp1d(x, y, x_new):
     f_r = interp.interp1d(x, np.real(y), bounds_error=False, fill_value=0.0)
     f_i = interp.interp1d(x, np.imag(y), bounds_error=False, fill_value=0.0)
     out = f_r(x_new) + 1j * f_i(x_new)
-    return out
-
-
-def interp1d_polar(x, y, x_new):
-    amp, phase = C2P(y)
-    f_amp = interp.interp1d(x, amp, bounds_error=False, fill_value=0.0)
-    f_phase = interp.interp1d(x, phase, bounds_error=False, fill_value=0.0)
-    out = P2C(f_amp(x_new), f_phase(x_new))
     return out
 
 
@@ -151,32 +128,12 @@ def play(stream, chunk):
     stream.write(chunk)
 
 
-def P2C(r, angles):
-    """
-    Take a complex number in polar form and put it in cartesian
-    :param r: radius
-    :param angles: phase in radian
-    :return: complex number in cartesian coordinates
-    """
-    return r * np.exp(1j*angles)
-
-
-def C2P(x):
-    """
-    Take a complex np array and return a tuple of np array with norm and phase (polar coordinates)
-    :param x: complex np array
-    :return: 2D array with norm and phase
-    """
-    return np.abs(x), np.angle(x)
-
-
 def silence(x, silence_threshold):
     amp_max = np.max(np.abs(x))
     return amp_max < silence_threshold
 
 
 def window(w_size, overlap=0.5, type='sine'):
-
     if overlap==0.75:
         overlap_factor = 1.0/np.sqrt(2)
     elif overlap==0.5:
@@ -207,7 +164,7 @@ def window(w_size, overlap=0.5, type='sine'):
     return w
 
 
-def build_notes_vector(key, n_oct):
+def build_notes_vector(key, n_oct=4):
     # Name of notes
     if 'b' in key:
         notes_str = ['A', 'Bb', 'B', 'C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab']
@@ -230,7 +187,8 @@ def build_notes_vector(key, n_oct):
     all_notes_str_ex = []
 
     for i in range(n_oct + 1):
-        all_notes_str_ex = all_notes_str_ex + [n + str(i + 1) for n in notes_str]
+        #all_notes_str_ex = all_notes_str_ex + [n + str(i + 1) for n in notes_str]
+        all_notes_str_ex = all_notes_str_ex + [n for n in notes_str]
 
     all_notes_str_ex = np.asarray(all_notes_str_ex)
     notes_str_ex = all_notes_str_ex[n_extended.astype(np.int8)]
@@ -239,25 +197,3 @@ def build_notes_vector(key, n_oct):
     # Notes for our table of notes, starting at 55Hz (A1)
     notes = np.asarray(55.0 * 2.0 ** (n_extended / 12.0))
     return notes, notes_str_ex
-
-
-def plot_spectra(freq, spectra, window_size, rate, overlap):
-    fig = plt.figure()
-    line, = plt.semilogx([], [])
-    plt.xlim(10, 20000)
-    max_spectra = np.max(spectra)
-    plt.ylim(0, max_spectra)
-
-    def init():
-        line.set_data(freq, np.zeros_like(freq))
-        return line,
-
-    def animate(i):
-
-        line.set_ydata(spectra[int(1/(1-overlap)*i)])
-        return line,
-
-    ani = anim.FuncAnimation(fig, animate, init_func=init, frames=int(spectra.shape[0]*(1-overlap)),
-                             blit=True, repeat=False)
-
-    ani.save('the_movie.mp4', writer='ffmpeg', fps=30)
