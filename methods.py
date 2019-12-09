@@ -4,10 +4,20 @@ import numpy as np
 from scipy import interpolate as interp
 import matplotlib.pyplot as plt
 from scipy.signal import find_peaks
+
+# Threshold for silence function
 THRESHOLD = 200
 
 
 def spline(x, y, x_new):
+    """
+    Spline interpolation of window spectrum
+    :param x: Shift_factor * freq_axis
+    :param y: Fourier transform of window (rfft)
+    :param x_new: freq_axis
+    :return: interpolation of spectrum on tuned frequency (shift_f * freq_axis) to real fft frequency bins (freq_axis)
+    """
+
     tck_r = interp.splrep(x, np.real(y), s=0)
     tck_i = interp.splrep(x, np.imag(y), s=0)
     y_new_r = interp.splev(x_new, tck_r, der=0)
@@ -17,45 +27,39 @@ def spline(x, y, x_new):
 
 
 def interp1d(x, y, x_new):
+    """
+    Piecewise linear interpolation of window spectrum
+    :param x: Shift_factor * freq_axis
+    :param y: Fourier transform of window (rfft)
+    :param x_new: freq_axis
+    :return: interpolation of spectrum on tuned frequency (shift_f * freq_axis) to real fft frequency bins (freq_axis)
+    """
+
     f_r = interp.interp1d(x, np.real(y), bounds_error=False, fill_value=0.0)
     f_i = interp.interp1d(x, np.imag(y), bounds_error=False, fill_value=0.0)
     out = f_r(x_new) + 1j * f_i(x_new)
     return out
 
 
-def shift_factor(y, freq, notes, notes_name):
-    """ Detect the fundamental frequency and compute the shift factor.
-    :param y: Fourier transform (get via np.rfft)
-    :param freq: Frequency corresponding to each index (get via np.rfftfreq)
-    :param notes: notes table containing all notes (defined at beginning of code
-    :return: shift factor
-    """
-    range_min = np.argmin(np.abs(freq - notes[0]))
-    range_max = np.argmin(np.abs(freq - notes[-1]))
-    peaks_idx, peaks_prop = find_peaks(np.abs(y[range_min:]),
-                                       distance=120 / (freq[1] - freq[0]),
-                                     prominence=60000)
-    if peaks_idx.shape[0]>0:
-        idx_fund = peaks_idx[0]
-    else:
-        idx_fund = np.argmax(y[range_min:range_max]*np.conj(y[range_min:range_max]))
-
-    # if measured freq is 0, be careful, do not divide by 0
-    polyfit = np.polyfit(freq[range_min + idx_fund - 1: range_min + idx_fund + 2], np.abs(y)[range_min + idx_fund - 1 : range_min + idx_fund + 2], 2)
-
-    pitch = - polyfit[1] / (2 * polyfit[0])
-
-    closest_note_idx = np.argmin(np.abs(pitch-notes))
-    closest_note = notes[closest_note_idx]
-
-    print("Closest note: ", repr(notes_name[closest_note_idx]), end='\r')
-    # Computation of shift factor: coeff to apply to frequency of input signal
-    shift_f = closest_note / pitch
-
-    return shift_f, peaks_idx, pitch
-
-
 def processing(x, freq, Z, window_size, step, rate, pad_size, notes, notes_name, i, plot=False):
+    """
+    Return the window signal with the frequency shifted, as well as the phase-coherency array Z
+    :param x: window array of sound signal
+    :param freq: freq array with corresponding frequency for each index of rfft
+    :param Z: Phase-coherency array
+    :param window_size: number of sample in a window
+    :param step: Size of a chunk: window_size/(1-overlap)
+    :param rate: sampling rate of the signal (eg: 44100)
+    :param pad_size: size of padding for fourier transform
+    :param notes: array containing frequency of each notes in key
+    :param notes_name: array containing names of each notes in key
+    :param i: iteration index we on (used to plot at certain iteration only)
+    :param plot: (boolean): if need to plot frequency spectrum of window and modified window
+    :return: out: modified signal,
+             Z: phase coherency array
+    """
+
+    # Check if there is a sound to modified or just no sound/weak background noise
     if not silence(x, THRESHOLD):
 
         # Zero Padding:
@@ -64,12 +68,15 @@ def processing(x, freq, Z, window_size, step, rate, pad_size, notes, notes_name,
         # Real fft
         y = np.fft.rfft(x)
 
-        # Compute shift factor and peaks positions for phase coherency
+        # Compute shift factor, peaks positions for phase coherency and pitch (fundamental frequency in window)
         shift_f, peaks_idx, pitch = shift_factor(y, freq, notes, notes_name)
 
+        # Update phase coherency array Z
+        # If no peak detected, all phase shifted according to detected pitch frequency
         if peaks_idx.shape[0]==0:
             delta_omega = 2*np.pi * pitch * (shift_f - 1)
 
+        # Normal case: phase are adjusted with the frequency of the closest peak for each frequency bin of fft
         else:
             peaks_freq = freq[peaks_idx]
             peaks_freq = peaks_freq[:, None]
@@ -79,6 +86,8 @@ def processing(x, freq, Z, window_size, step, rate, pad_size, notes, notes_name,
             delta_omega = 2 * np.pi * closest_peak_freq * (shift_f - 1)
 
         Z = Z * np.exp(1j * delta_omega * step / rate)
+
+        # Apply phase correction
         y_phase = Z * y
 
         # Shift frequency spectrum
@@ -90,6 +99,8 @@ def processing(x, freq, Z, window_size, step, rate, pad_size, notes, notes_name,
         # Remove zero padding
         out = out[:window_size]
 
+        # To plot frequency domain of orignal and modified window signal
+        # (SLOWS DOWN THE CODE A LOT, LIVE IMPOSSIBLE)
         if plot:
             if i % 20 == 0:
                 fig, (ax1, ax2) = plt.subplots(2, sharex=True, sharey=True)
@@ -104,6 +115,7 @@ def processing(x, freq, Z, window_size, step, rate, pad_size, notes, notes_name,
                 ax1.set_title('plot window')
                 plt.draw()
 
+    # If considered as a silent window, just return original signal and reset phase coherency array to 1.0
     else:
         out = x
         Z = 1.0+0.0j
@@ -112,8 +124,57 @@ def processing(x, freq, Z, window_size, step, rate, pad_size, notes, notes_name,
     return out, Z
 
 
+def shift_factor(y, freq, notes, notes_name):
+    """ Detect the fundamental frequency and compute the shift factor. Also computes the peaks position in freq spectrum
+    :param y: Frequency spectrum (get via np.rfft)
+    :param freq: Frequency corresponding to each index (get via np.rfftfreq)
+    :param notes: notes table containing all notes (defined at beginning of code)
+    :param notes_name: table containing all notes name (eg A#2) (defined at beginning of code)
+    :return: shift factor, peaks indexes array, pitch (frequency of fundamental notes in window)
+    """
+    range_min = np.argmin(np.abs(freq - notes[0]))
+    range_max = np.argmin(np.abs(freq - notes[-1]))
+    peaks_idx, peaks_prop = find_peaks(np.abs(y[range_min:]),
+                                       distance=120 / (freq[1] - freq[0]),
+                                       prominence=60000)
+    # If peaks are detected, fundamental freq is lowest peak
+    if peaks_idx.shape[0]>0 and peaks_idx[0]<range_max:
+        idx_fund = peaks_idx[0]
+
+    # If no peak detected in range given by notes,
+    # take highest frequency in spectrum (a peak but not detected by find_peaks)
+    else:
+        idx_fund = np.argmax(y[range_min:range_max]*np.conj(y[range_min:range_max]))
+
+    # Interpolate with parabola between idx_fund-1 to idx_fund + 1
+    polyfit = np.polyfit(freq[range_min + idx_fund - 1: range_min + idx_fund + 2],
+                         np.abs(y)[range_min + idx_fund - 1 : range_min + idx_fund + 2], 2)
+
+    # Get max of parabola
+    pitch = - polyfit[1] / (2 * polyfit[0])
+
+    # Get closest note in key
+    closest_note_idx = np.argmin(np.abs(pitch-notes))
+    closest_note = notes[closest_note_idx]
+
+    print("Closest note: ", repr(notes_name[closest_note_idx]), end=' \r')
+
+    # Computation of shift factor: coeff to apply to frequency of input signal
+    shift_f = closest_note / pitch
+
+    return shift_f, peaks_idx, pitch
+
+
 def shift_freq(y, freq, shift_f):
-    # Interpolation: suppose you have correct pitch (freq_x = shift_f * freq) and resample to freq scale
+    """
+    Returns shifted frequency spectrum
+    :param y: Fourier transform of window signal
+    :param freq: array with corresponding frequency of Fourier transform for each idx
+    :param shift_f: shift factor with which we shift the signal
+    :return: y_new: shifted Fourier transform
+    """
+
+    # Interpolation: suppose you have correct pitch (freq_x = shift_f * freq) and resample to normal freq scale
     # to then do inverse fourier transform
     y_new = interp1d(shift_f * freq, y, freq)
 
@@ -125,15 +186,33 @@ def shift_freq(y, freq, shift_f):
 
 
 def play(stream, chunk):
+    """
+    Write chunk to output stream
+    :param stream: pyaudio output stream to write chunk
+    :param chunk: numpy array to write to ouput stream
+    """
     stream.write(chunk)
 
 
 def silence(x, silence_threshold):
+    """
+    Return boolean indicating if the window is silent (if max of abs(signal) is below the threshold)
+    :param x: window signal
+    :param silence_threshold: threshold
+    :return: boolean, silent (True) or not Silent (False)
+    """
     amp_max = np.max(np.abs(x))
     return amp_max < silence_threshold
 
 
 def window(w_size, overlap=0.5, type='sine'):
+    """
+    Return array of size w_size with window function evaluated at each index
+    :param w_size: size of window
+    :param overlap: 0, 0.5 or 0.75 of overlap
+    :param type: type of the windows (sine, hann, hamming, or rect)
+    :return: array containing window function evaluated between 0 and w_size-1
+    """
     if overlap==0.75:
         overlap_factor = 1.0/np.sqrt(2)
     elif overlap==0.5:
@@ -165,6 +244,13 @@ def window(w_size, overlap=0.5, type='sine'):
 
 
 def build_notes_vector(key, n_oct=4):
+    """
+    Construct two arrays containing frequency and notes names of notes present in specified key
+    :param key: Name of key, has the form 'A' or 'Ab' or 'A#'
+    :param n_oct: Number of octave to consider (default 4)
+    :return: notes: array containing all frequency of notes in key
+            notes_str_ex: array containing all notes names of notes in key
+    """
     # Name of notes
     if 'b' in key:
         notes_str = ['A', 'Bb', 'B', 'C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab']
@@ -177,8 +263,6 @@ def build_notes_vector(key, n_oct=4):
 
     key_notes = np.sort(np.mod(start_idx + np.array([0, 2, 4, 5, 7, 9, 11]), 12))
 
-    # key_notes_str = notes_str[np.mod(key_notes, 12)]
-
     n_extended = np.array([])
 
     for i in range(n_oct + 1):
@@ -187,13 +271,19 @@ def build_notes_vector(key, n_oct=4):
     all_notes_str_ex = []
 
     for i in range(n_oct + 1):
-        #all_notes_str_ex = all_notes_str_ex + [n + str(i + 1) for n in notes_str]
         all_notes_str_ex = all_notes_str_ex + [n for n in notes_str]
+
+    for i in range(len(all_notes_str_ex)):
+        if i <3:
+            all_notes_str_ex[i] = all_notes_str_ex[i] + str(1)
+        else:
+            all_notes_str_ex[i] = all_notes_str_ex[i] + str(int((i-3)/12+2))
 
     all_notes_str_ex = np.asarray(all_notes_str_ex)
     notes_str_ex = all_notes_str_ex[n_extended.astype(np.int8)]
     notes_str_ex = np.asarray(notes_str_ex)
 
     # Notes for our table of notes, starting at 55Hz (A1)
+    # The factor between each semitone is 2^(1/12)
     notes = np.asarray(55.0 * 2.0 ** (n_extended / 12.0))
     return notes, notes_str_ex
