@@ -3,48 +3,8 @@ import wave
 import numpy as np
 from methods import *
 import wavio
+from settings import *
 np.set_printoptions(4, suppress=True)
-
-# Define input type: mic, wav, mp3 or sin
-input_type = 'wav'
-
-# If input_type is wav, specify path to wav file
-wavefile_name = 'Maria_Victor_Refrain.wav'
-
-# If play sound live while recording/processing
-play_sound = True
-
-# Display or not the plot of time domain and frequency domain of the whole signal
-plot_end = False
-
-# Key: to shift towards notes that belong to the key
-KEY = 'Eb'
-
-# Window size and overlap
-WINDOW_SIZE = int(2048)
-WINDOW_OVERLAP = 0.75
-
-# Power of 2 = 0 :no padding, 1: half signal half zeros , 2: one quarter signal three quarters 0 ...
-FFT_SIZE = 2**2 * WINDOW_SIZE
-
-# Window functions
-analysis_window_type = 'sine'
-synthesis_window_type = 'sine'
-
-# Output names
-WAVE_OUTPUT_FILENAME = "voice_modif.wav"
-WAVE_OUTPUT_FILENAME_NO_MODIF = "voice_no_modif.wav"
-
-PARALLEL_WINDOWS = int(1 / (1 - WINDOW_OVERLAP))
-CHUNK_SIZE = int(WINDOW_SIZE * (1 - WINDOW_OVERLAP))
-
-# Set basic information for audio
-FORMAT = pyaudio.paInt16
-CHANNELS = 1
-RATE = 44100
-
-# Recording time if input_type is mic
-RECORD_SECONDS = 10
 
 # Build notes vectors
 notes, notes_str = build_notes_vector(KEY, 4)
@@ -80,7 +40,6 @@ if play_sound:
 
 if input_type=='sin':
     # Specify frequency of pure sin signal
-    f = 466
     j = np.arange(RATE * RECORD_SECONDS)
     signal = np.array(10000 * np.sin(2 * np.pi * f * j / RATE), dtype=np.int16)
     n_iter = int(signal.shape[0]/CHUNK_SIZE)
