@@ -200,21 +200,10 @@ def shift_freq(y, freq, shift_f):
     :param shift_f: shift factor with which we shift the signal
     :return: y_new: shifted Fourier transform
     """
-
     # Interpolation: suppose you have correct pitch (freq_x = shift_f * freq) and resample to normal freq scale
     # to then do inverse fourier transform
-    # extend array of freq and y in order o avoid interpolating outside of domain
-    #ex = np.asarray([freq[-1] + 1, freq[-1] + 2, freq[-1]+5, freq[-1] + 3000])
-    #freq_ex = np.concatenate((freq, ex))
-
-    #y_new = interp1d(shift_f * freq_ex, np.pad(y, (0, 4), 'constant', constant_values=(0.0, 0.0)), freq, 'cubic')
     y_new = interp1d_p(shift_f * freq, y, freq, 'cubic')
 
-    # Interpolation outside the freq range put to 0
-    # Security
-    # if shift_f < 1.0:
-    #     idx_out_range = freq/shift_f > freq[-1]
-    #     y_new_[idx_out_range] = 0
     return y_new
 
 
@@ -320,16 +309,6 @@ def build_notes_vector(key, n_oct=4):
     # The factor between each semitone is 2^(1/12)
     notes = np.asarray(55.0 * 2.0 ** (n_extended / 12.0))
     return notes, notes_str_ex
-
-
-def P2C(r, angles):
-    """
-    Take a complex number in polar form and put it in cartesian
-    :param r: radius
-    :param angles: phase in radian
-    :return: complex number in cartesian coordinates
-    """
-    return r * np.exp(1j*angles)
 
 
 def C2P(x):
