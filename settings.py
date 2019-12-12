@@ -3,7 +3,7 @@ import numpy as np
 from methods import *
 
 # Define input type: mic, wav or sin
-input_type = 'mic'
+input_type = 'wav'
 
 # If input_type is wav, specify path to wav file
 wavefile_name = 'attention_1_f#.wav'
@@ -15,7 +15,7 @@ play_sound = True
 plot_end = False
 
 # Key: to shift towards notes that belong to the key
-KEY = 'F#'
+KEY = 'Eb'
 
 # Window size and overlap
 WINDOW_SIZE = int(1024)
@@ -28,9 +28,6 @@ FFT_SIZE = 2**2 * WINDOW_SIZE
 analysis_window_type = 'sine'
 synthesis_window_type = 'sine'
 
-# Output names
-WAVE_OUTPUT_FILENAME = "voice_modif.wav"
-WAVE_OUTPUT_FILENAME_NO_MODIF = "voice_no_modif.wav"
 
 PARALLEL_WINDOWS = int(1 / (1 - WINDOW_OVERLAP))
 CHUNK_SIZE = int(WINDOW_SIZE * (1 - WINDOW_OVERLAP))
@@ -41,7 +38,18 @@ CHANNELS = 1
 RATE = 44100
 
 # Recording time if input_type is mic
-RECORD_SECONDS = 10
+RECORD_SECONDS = 4
 
 # Sinus frequency if input_type is sin
-f = 466
+f = 233
+
+# Output names
+if input_type == 'sin':
+    WAVE_OUTPUT_FILENAME = "sin_" + str(f) + "_W" + str(WINDOW_SIZE) + "_FFT" + str(FFT_SIZE) + "_O" + \
+                           str(WINDOW_OVERLAP) + ".wav"
+    WAVE_OUTPUT_FILENAME_NO_MODIF = "sin_" + str(f) + ".wav"
+
+elif input_type=='wav':
+    WAVE_OUTPUT_FILENAME = wavefile_name + "_W" + str(WINDOW_SIZE) + "_FFT" + str(FFT_SIZE) + "_O" + \
+                           str(WINDOW_OVERLAP) + ".wav"
+    WAVE_OUTPUT_FILENAME_NO_MODIF = 'voice_no_modif.wav'

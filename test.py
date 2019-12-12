@@ -144,7 +144,7 @@ wf.close()
 # Plot figure of frequency domain
 if plot_end:
     input_signal = np.frombuffer(b''.join(frames_no_modif), dtype=np.int16)
-    output_signal = np.frombuffer(b''.join(frames_no_modif), dtype=np.int16)
+    output_signal = np.frombuffer(b''.join(frames), dtype=np.int16)
 
     fig, (ax1, ax2) = plt.subplots(2, sharex=True, sharey=True)
     freq_all = np.fft.rfftfreq(input_signal.shape[0], 1.0/RATE)

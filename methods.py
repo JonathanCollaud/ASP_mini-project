@@ -26,18 +26,35 @@ def spline(x, y, x_new):
     return y_new
 
 
-def interp1d(x, y, x_new):
+def interp1d(x, y, x_new, kind='linear'):
     """
-    Piecewise linear interpolation of window spectrum
+    Interpolation of window spectrum
     :param x: Shift_factor * freq_axis
     :param y: Fourier transform of window (rfft)
     :param x_new: freq_axis
+    :param kind: (string) either 'linear' for piecewise linear interpolation or 'cubic' for cubic spline
     :return: interpolation of spectrum on tuned frequency (shift_f * freq_axis) to real fft frequency bins (freq_axis)
     """
 
-    f_r = interp.interp1d(x, np.real(y), bounds_error=False, fill_value=0.0)
-    f_i = interp.interp1d(x, np.imag(y), bounds_error=False, fill_value=0.0)
+    f_r = interp.interp1d(x, np.real(y), kind=kind, bounds_error=False, fill_value=0.0, assume_sorted=True)
+    f_i = interp.interp1d(x, np.imag(y), kind=kind, bounds_error=False, fill_value=0.0, assume_sorted=True)
     out = f_r(x_new) + 1j * f_i(x_new)
+    return out
+
+
+def interp1d_p(x, y, x_new, kind='linear'):
+    """
+
+    :param x:
+    :param y:
+    :param x_new:
+    :param kind:
+    :return:
+    """
+    amp, phase = C2P(y)
+    f_amp = interp.interp1d(x, amp, kind=kind, bounds_error=False, fill_value=0.0, assume_sorted=True)
+    f_phase = interp.interp1d(x, phase, kind='nearest', bounds_error=False, fill_value=0.0, assume_sorted=True)
+    out = f_amp(x_new) * np.exp(1.0j * f_phase(x_new))
     return out
 
 
@@ -79,6 +96,7 @@ def processing(x, freq, Z, window_size, step, rate, pad_size, notes, notes_name,
         # Normal case: phase are adjusted with the frequency of the closest peak for each frequency bin of fft
         else:
             peaks_freq = freq[peaks_idx]
+            peaks_freq[0] = pitch
             peaks_freq = peaks_freq[:, None]
             closest_peak_idx = np.argmin(np.abs(freq-peaks_freq), axis=0)
             closest_peak_freq = peaks_freq[closest_peak_idx]
@@ -87,11 +105,16 @@ def processing(x, freq, Z, window_size, step, rate, pad_size, notes, notes_name,
 
         Z = Z * np.exp(1j * delta_omega * step / rate)
 
+        if i==20:
+            np.save('y', y)
         # Apply phase correction
         y_phase = Z * y
 
         # Shift frequency spectrum
         y_new = shift_freq(y_phase, freq, shift_f)
+
+        if i==20:
+            np.save('y_new', y_new)
 
         # Inverse FFT
         out = np.fft.irfft(y_new)
@@ -102,7 +125,10 @@ def processing(x, freq, Z, window_size, step, rate, pad_size, notes, notes_name,
         # To plot frequency domain of orignal and modified window signal
         # (SLOWS DOWN THE CODE A LOT, LIVE IMPOSSIBLE)
         if plot:
-            if i % 20 == 0:
+            if i % 50 == 0:
+                print(peaks_freq)
+                print(pitch)
+                print(shift_f)
                 fig, (ax1, ax2) = plt.subplots(2, sharex=True, sharey=True)
                 xmin, xmax, ymin, ymax = 20, 20000, 200, 600000
                 ax1.set_xlim([xmin, xmax])
@@ -135,20 +161,21 @@ def shift_factor(y, freq, notes, notes_name):
     range_min = np.argmin(np.abs(freq - notes[0]))
     range_max = np.argmin(np.abs(freq - notes[-1]))
     peaks_idx, peaks_prop = find_peaks(np.abs(y[range_min:]),
-                                       distance=120 / (freq[1] - freq[0]),
+                                       distance=80 / (freq[1] - freq[0]),
                                        prominence=60000)
     # If peaks are detected, fundamental freq is lowest peak
-    if peaks_idx.shape[0]>0 and peaks_idx[0]<range_max:
+    if peaks_idx.shape[0] > 0 and peaks_idx[0] < range_max-range_min:
+        peaks_idx = peaks_idx + range_min
         idx_fund = peaks_idx[0]
 
     # If no peak detected in range given by notes,
     # take highest frequency in spectrum (a peak but not detected by find_peaks)
     else:
-        idx_fund = np.argmax(y[range_min:range_max]*np.conj(y[range_min:range_max]))
+        idx_fund = np.argmax(y[range_min:range_max]*np.conj(y[range_min:range_max])) + range_min
 
     # Interpolate with parabola between idx_fund-1 to idx_fund + 1
-    polyfit = np.polyfit(freq[range_min + idx_fund - 1: range_min + idx_fund + 2],
-                         np.abs(y)[range_min + idx_fund - 1 : range_min + idx_fund + 2], 2)
+    polyfit = np.polyfit(freq[idx_fund - 1: idx_fund + 2],
+                         np.abs(y)[idx_fund - 1:idx_fund + 2], 2)
 
     # Get max of parabola
     pitch = - polyfit[1] / (2 * polyfit[0])
@@ -176,12 +203,18 @@ def shift_freq(y, freq, shift_f):
 
     # Interpolation: suppose you have correct pitch (freq_x = shift_f * freq) and resample to normal freq scale
     # to then do inverse fourier transform
-    y_new = interp1d(shift_f * freq, y, freq)
+    # extend array of freq and y in order o avoid interpolating outside of domain
+    #ex = np.asarray([freq[-1] + 1, freq[-1] + 2, freq[-1]+5, freq[-1] + 3000])
+    #freq_ex = np.concatenate((freq, ex))
+
+    #y_new = interp1d(shift_f * freq_ex, np.pad(y, (0, 4), 'constant', constant_values=(0.0, 0.0)), freq, 'cubic')
+    y_new = interp1d_p(shift_f * freq, y, freq, 'cubic')
 
     # Interpolation outside the freq range put to 0
-    if shift_f < 1.0:
-        idx_out_range = freq/shift_f > freq[-1]
-        y_new[idx_out_range] = 0
+    # Security
+    # if shift_f < 1.0:
+    #     idx_out_range = freq/shift_f > freq[-1]
+    #     y_new_[idx_out_range] = 0
     return y_new
 
 
@@ -225,16 +258,16 @@ def window(w_size, overlap=0.5, type='sine'):
 
     n = np.arange(w_size)
 
-    if type=='sine':
+    if type == 'sine':
         w = overlap_factor * np.sin((n+0.5)*np.pi/w_size)
 
-    elif type=='hann':
+    elif type == 'hann':
         w = overlap_factor * np.sin((n+0.5)*np.pi/w_size)**2
 
-    elif type=='rect':
+    elif type == 'rect':
         w = overlap_factor * np.ones(w_size)
 
-    elif type=='hamming':
+    elif type == 'hamming':
         w = np.hamming(w_size)
 
     else:
@@ -274,7 +307,7 @@ def build_notes_vector(key, n_oct=4):
         all_notes_str_ex = all_notes_str_ex + [n for n in notes_str]
 
     for i in range(len(all_notes_str_ex)):
-        if i <3:
+        if i < 3:
             all_notes_str_ex[i] = all_notes_str_ex[i] + str(1)
         else:
             all_notes_str_ex[i] = all_notes_str_ex[i] + str(int((i-3)/12+2))
@@ -287,3 +320,22 @@ def build_notes_vector(key, n_oct=4):
     # The factor between each semitone is 2^(1/12)
     notes = np.asarray(55.0 * 2.0 ** (n_extended / 12.0))
     return notes, notes_str_ex
+
+
+def P2C(r, angles):
+    """
+    Take a complex number in polar form and put it in cartesian
+    :param r: radius
+    :param angles: phase in radian
+    :return: complex number in cartesian coordinates
+    """
+    return r * np.exp(1j*angles)
+
+
+def C2P(x):
+    """
+    Take a complex np array and return a tuple of np array with norm and phase (polar coordinates)
+    :param x: complex np array
+    :return: 2D array with norm and phase
+    """
+    return np.abs(x), np.angle(x)
