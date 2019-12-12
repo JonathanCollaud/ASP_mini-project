@@ -9,50 +9,21 @@ from scipy.signal import find_peaks
 THRESHOLD = 200
 
 
-def spline(x, y, x_new):
-    """
-    Spline interpolation of window spectrum
-    :param x: Shift_factor * freq_axis
-    :param y: Fourier transform of window (rfft)
-    :param x_new: freq_axis
-    :return: interpolation of spectrum on tuned frequency (shift_f * freq_axis) to real fft frequency bins (freq_axis)
-    """
-
-    tck_r = interp.splrep(x, np.real(y), s=0)
-    tck_i = interp.splrep(x, np.imag(y), s=0)
-    y_new_r = interp.splev(x_new, tck_r, der=0)
-    y_new_i = interp.splev(x_new, tck_i, der=0)
-    y_new = y_new_r + 1j * y_new_i
-    return y_new
-
-
-def interp1d(x, y, x_new, kind='linear'):
-    """
-    Interpolation of window spectrum
-    :param x: Shift_factor * freq_axis
-    :param y: Fourier transform of window (rfft)
-    :param x_new: freq_axis
-    :param kind: (string) either 'linear' for piecewise linear interpolation or 'cubic' for cubic spline
-    :return: interpolation of spectrum on tuned frequency (shift_f * freq_axis) to real fft frequency bins (freq_axis)
-    """
-
-    f_r = interp.interp1d(x, np.real(y), kind=kind, bounds_error=False, fill_value=0.0, assume_sorted=True)
-    f_i = interp.interp1d(x, np.imag(y), kind=kind, bounds_error=False, fill_value=0.0, assume_sorted=True)
-    out = f_r(x_new) + 1j * f_i(x_new)
-    return out
-
-
 def interp1d_p(x, y, x_new, kind='linear'):
     """
-
-    :param x:
-    :param y:
-    :param x_new:
-    :param kind:
-    :return:
+    Interpolation of window spectrum, interpolates the norm of each complex number and take the phase of the nearest bin
+    :param x: Shift_factor * freq_axis
+    :param y: Fourier transform of window (rfft)
+    :param x_new: freq_axis
+    :param kind: (string) either 'linear' for piecewise linear interpolation or 'cubic' for cubic spline to interpolate
+                 norm of fourier coefficients
+    :return: interpolation of spectrum on tuned frequency (shift_f * freq_axis) to real fft frequency bins (freq_axis)
     """
+    # Convert y in amplitude and phase representation
     amp, phase = C2P(y)
+    # Interpolates amplitude
     f_amp = interp.interp1d(x, amp, kind=kind, bounds_error=False, fill_value=0.0, assume_sorted=True)
+    # Interpolates phase (nearest phase to avoid problems with the phase discontinuity between -pi and pi
     f_phase = interp.interp1d(x, phase, kind='nearest', bounds_error=False, fill_value=0.0, assume_sorted=True)
     out = f_amp(x_new) * np.exp(1.0j * f_phase(x_new))
     return out
