@@ -59,7 +59,6 @@ def processing(x, freq, Z, window_size, step, rate, pad_size, notes, notes_name,
         # Compute shift factor, peaks positions for phase coherency and pitch (fundamental frequency in window)
         shift_f, peaks_idx, pitch = shift_factor(y, freq, notes, notes_name)
 
-        # Update phase coherency array Z
         # If no peak detected, all phase shifted according to detected pitch frequency
         if peaks_idx.shape[0]==0:
             delta_omega = 2*np.pi * pitch * (shift_f - 1)
@@ -74,18 +73,14 @@ def processing(x, freq, Z, window_size, step, rate, pad_size, notes, notes_name,
             closest_peak_freq = closest_peak_freq[:, 0]
             delta_omega = 2 * np.pi * closest_peak_freq * (shift_f - 1)
 
+        # Update phasor Z
         Z = Z * np.exp(1j * delta_omega * step / rate)
 
-        if i==20:
-            np.save('y', y)
         # Apply phase correction
         y_phase = Z * y
 
         # Shift frequency spectrum
         y_new = shift_freq(y_phase, freq, shift_f)
-
-        if i==20:
-            np.save('y_new', y_new)
 
         # Inverse FFT
         out = np.fft.irfft(y_new)
@@ -97,9 +92,6 @@ def processing(x, freq, Z, window_size, step, rate, pad_size, notes, notes_name,
         # (SLOWS DOWN THE CODE A LOT, LIVE IMPOSSIBLE)
         if plot:
             if i % 50 == 0:
-                print(peaks_freq)
-                print(pitch)
-                print(shift_f)
                 fig, (ax1, ax2) = plt.subplots(2, sharex=True, sharey=True)
                 xmin, xmax, ymin, ymax = 20, 20000, 200, 600000
                 ax1.set_xlim([xmin, xmax])
@@ -116,7 +108,7 @@ def processing(x, freq, Z, window_size, step, rate, pad_size, notes, notes_name,
     else:
         out = x
         Z = 1.0+0.0j
-        print('Silence', end='\r')
+        print('Silence                   ', end='\r')
 
     return out, Z
 
@@ -245,22 +237,34 @@ def window(w_size, overlap=0.5, type='sine'):
 def build_notes_vector(key, n_oct=4):
     """
     Construct two arrays containing frequency and notes names of notes present in specified key
-    :param key: Name of key, has the form 'A' or 'Ab' or 'A#'
+    :param key: Name of key, has the form 'A' or 'Ab' or 'A#', letters from A to G
     :param n_oct: Number of octave to consider (default 4)
     :return: notes: array containing all frequency of notes in key
             notes_str_ex: array containing all notes names of notes in key
     """
-    # Name of notes
-    if 'b' in key:
-        notes_str = ['A', 'Bb', 'B', 'C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab']
-        start_idx = notes_str.index(key)
-        notes_str = np.asarray(notes_str)
-    else:
-        notes_str = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#']
-        start_idx = notes_str.index(key)
-        notes_str = np.asarray(notes_str)
+    if key == 'chromatic':
+        notes_str = np.asarray(['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#'], dtype='<U3')
+        notes_str_ex = np.tile(notes_str, (1, n_oct + 1))[0]
+        octave_index = np.asarray([1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2])
+        for idx in range(len(notes_str_ex)):
+            incr = idx//12
+            notes_str_ex[idx] = str(notes_str_ex[idx]) + str(octave_index[idx%12]+incr)
+        n_extended = np.arange(len(notes_str_ex))
+        notes = np.asarray(55.0 * 2.0 ** (n_extended / 12.0))
+        return notes, np.asarray(notes_str_ex)
 
-    key_notes = np.sort(np.mod(start_idx + np.array([0, 2, 4, 5, 7, 9, 11]), 12))
+    else:
+        # Name of notes
+        if 'b' in key:
+            notes_str = ['A', 'Bb', 'B', 'C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab']
+            start_idx = notes_str.index(key)
+            notes_str = np.asarray(notes_str)
+        else:
+            notes_str = ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#']
+            start_idx = notes_str.index(key)
+            notes_str = np.asarray(notes_str)
+
+        key_notes = np.sort(np.mod(start_idx + np.array([0, 2, 4, 5, 7, 9, 11]), 12))
 
     n_extended = np.array([])
 
@@ -292,6 +296,6 @@ def C2P(x):
     """
     Take a complex np array and return a tuple of np array with norm and phase (polar coordinates)
     :param x: complex np array
-    :return: 2D array with norm and phase
+    :return: tuple with norm array and phase array
     """
     return np.abs(x), np.angle(x)

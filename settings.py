@@ -9,16 +9,16 @@ input_type = 'wav'
 wavefile_name = 'attention_1_f#.wav'
 
 # If play sound live while recording/processing
-play_sound = True
+play_sound = False
 
 # Display or not the plot of time domain and frequency domain of the whole signal
-plot_end = False
+plot_end = True
 
 # Key: to shift towards notes that belong to the key
-KEY = 'Eb'
+KEY = 'F#'
 
 # Window size and overlap
-WINDOW_SIZE = int(1024)
+WINDOW_SIZE = int(2048)
 WINDOW_OVERLAP = 0.75
 
 # Power of 2 = 0 :no padding, 1: half signal half zeros , 2: one quarter signal three quarters 0 ...
@@ -38,10 +38,10 @@ CHANNELS = 1
 RATE = 44100
 
 # Recording time if input_type is mic
-RECORD_SECONDS = 4
+RECORD_SECONDS = 3
 
 # Sinus frequency if input_type is sin
-f = 233
+f = 116
 
 # Output names
 if input_type == 'sin':

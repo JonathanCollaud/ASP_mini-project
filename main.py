@@ -76,14 +76,21 @@ Z = 1.0 + 0.0j
 # For loop that will read the input signal in chunk
 print("* start", flush=True)
 
-for i in range(0, n_iter):
-    if input_type is not 'mic':
-        chunk = signal[i * CHUNK_SIZE: (i + 1) * CHUNK_SIZE].copy()
-    else:
-        chunk = in_stream.read(CHUNK_SIZE, exception_on_overflow=False)
-        chunk = np.frombuffer(chunk, dtype=np.int16)
 
-    frames_no_modif.append(chunk)
+for i in range(0, n_iter + PARALLEL_WINDOWS-1):
+    # If statement to avoid reading for the last iterations (corresponding to delay due to windowing
+    if i < n_iter:
+        if input_type is not 'mic':
+            chunk = signal[i * CHUNK_SIZE: (i + 1) * CHUNK_SIZE].copy()
+        else:
+            chunk = in_stream.read(CHUNK_SIZE, exception_on_overflow=False)
+            chunk = np.frombuffer(chunk, dtype=np.int16)
+
+        frames_no_modif.append(chunk)
+
+    else:
+        chunk = np.zeros(CHUNK_SIZE)
+
     chunk_array[-1] = chunk
 
     # Flatten copies the array
@@ -105,14 +112,18 @@ for i in range(0, n_iter):
     # Put the finished chunk to stream (index 0)
     out_chunk = summed_chunks[0].astype(np.int16).tostring()
 
-    if play_sound:
-        play(out_stream, out_chunk)
-    frames.append(out_chunk)
+    # To avoid adding to output file zero from initialisation of chunk arrays
+    if i >= PARALLEL_WINDOWS - 1:
+        if play_sound:
+            play(out_stream, out_chunk)
+
+        frames.append(out_chunk)
+
     chunk_array[:-1] = chunk_array[1:]                    
     summed_chunks[:-1] = summed_chunks[1:]
     summed_chunks[-1] = np.zeros((CHUNK_SIZE,))
 
-print("* done", flush=True)
+print("* done              ", flush=True)
 
 # Stop started streams
 if input_type=='mic':
@@ -141,7 +152,7 @@ wf.writeframes(b''.join(frames_no_modif))
 wf.close()
 
 
-# Plot figure of frequency domain
+# Plot figure of time frequency domain if specified by user
 if plot_end:
     input_signal = np.frombuffer(b''.join(frames_no_modif), dtype=np.int16)
     output_signal = np.frombuffer(b''.join(frames), dtype=np.int16)
@@ -150,14 +161,25 @@ if plot_end:
     freq_all = np.fft.rfftfreq(input_signal.shape[0], 1.0/RATE)
     ax1.plot(freq_all, np.abs(np.fft.rfft(input_signal)))
     ax2.plot(freq_all, np.abs(np.fft.rfft(output_signal)))
-    ax1.set_title('Frequency Domain')
+    ax2.set_xlabel('Frequency (Hz)')
+    ax1.set_ylabel('Amplitude')
+    ax2.set_ylabel('Amplitude')
+
+    ax1.set_title('Input frequency spectrum')
+    ax2.set_title('Output frequency spectrum')
+
     plt.draw()
 
     # Plot figure of time domain
     fig, (ax1, ax2) = plt.subplots(2, sharex=True, sharey=True)
     ax1.plot(input_signal)
     ax2.plot(output_signal)
-    ax1.set_title('Time domain')
+    ax1.set_title('Input waveform')
+    ax2.set_title('Output waveform')
+    ax2.set_xlabel('Sample index')
+    ax1.set_ylabel('Amplitude')
+    ax2.set_ylabel('Amplitude')
+    plt.draw()
 
     plt.show()
 
