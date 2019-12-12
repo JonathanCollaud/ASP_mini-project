@@ -134,6 +134,7 @@ def shift_factor(y, freq, notes, notes_name):
     peaks_idx, peaks_prop = find_peaks(np.abs(y[range_min:]),
                                        distance=80 / (freq[1] - freq[0]),
                                        prominence=60000)
+
     # If peaks are detected, fundamental freq is lowest peak
     if peaks_idx.shape[0] > 0 and peaks_idx[0] < range_max-range_min:
         peaks_idx = peaks_idx + range_min
@@ -159,6 +160,11 @@ def shift_factor(y, freq, notes, notes_name):
 
     # Computation of shift factor: coeff to apply to frequency of input signal
     shift_f = closest_note / pitch
+
+    # If shift f too large or to low (for security, shouldn't happen)
+    if shift_f > 1.2 or shift_f<0.8:
+        shift_f = 1
+        print('Shift factor out of range, setting it to 1.0', flush=True)
 
     return shift_f, peaks_idx, pitch
 
