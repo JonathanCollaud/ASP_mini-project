@@ -1,5 +1,5 @@
-import pyaudio
 import numpy as np
+
 from methods import *
 
 # Define input type: 'mic', 'wav' or 'sin'
@@ -24,8 +24,11 @@ plot_window = False
 KEY = 'A'
 
 # Window size and overlap
-WINDOW_SIZE = int(4096)
-WINDOW_OVERLAP = 0.5
+
+WINDOW_SIZE = int(2048)
+WINDOW_OVERLAP = 0.75
+PARALLEL_WINDOWS = int(1 / (1 - WINDOW_OVERLAP))
+CHUNK_SIZE = int(WINDOW_SIZE * (1 - WINDOW_OVERLAP))
 
 # Power of 2 = 0 :no padding, 1: half signal half zeros , 2: one quarter signal three quarters 0 ...
 FFT_SIZE = 2**0 * WINDOW_SIZE
@@ -34,14 +37,13 @@ FFT_SIZE = 2**0 * WINDOW_SIZE
 analysis_window_type = 'sine'
 synthesis_window_type = 'sine'
 
-
-PARALLEL_WINDOWS = int(1 / (1 - WINDOW_OVERLAP))
-CHUNK_SIZE = int(WINDOW_SIZE * (1 - WINDOW_OVERLAP))
-
 # Set basic information for audio
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = 44100
+
+# Threshold for silence function
+SILENCE_THRESHOLD = 200
 
 # Recording time if input_type is mic
 RECORD_SECONDS = 2
@@ -54,8 +56,11 @@ if input_type == 'sin':
     WAVE_OUTPUT_FILENAME = "sin_" + str(f) + "_W" + str(WINDOW_SIZE) + "_FFT" + str(FFT_SIZE) + "_O" + \
                            str(WINDOW_OVERLAP) + ".wav"
     WAVE_OUTPUT_FILENAME_NO_MODIF = "sin_" + str(f) + ".wav"
-
 elif input_type=='wav':
     WAVE_OUTPUT_FILENAME = wavefile_name + "_W" + str(WINDOW_SIZE) + "_FFT" + str(FFT_SIZE) + "_O" + \
                            str(WINDOW_OVERLAP) + ".wav"
     WAVE_OUTPUT_FILENAME_NO_MODIF = 'voice_no_modif.wav'
+elif input_type=='mic':
+    WAVE_OUTPUT_FILENAME = "mic_W" + str(WINDOW_SIZE) + "_FFT" + str(FFT_SIZE) + "_O" + \
+                           str(WINDOW_OVERLAP) + ".wav"
+    WAVE_OUTPUT_FILENAME_NO_MODIF = 'mic_no_modif.wav'

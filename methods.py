@@ -1,12 +1,10 @@
-import pyaudio
-import wave
-import numpy as np
-from scipy import interpolate as interp
 import matplotlib.pyplot as plt
-from scipy.signal import find_peaks
+import numpy as np
+import pyaudio
 
-# Threshold for silence function
-THRESHOLD = 200
+from settings import *
+from scipy import interpolate as interp
+from scipy.signal import find_peaks
 
 
 def interp1d_p(x, y, x_new, kind='linear'):
@@ -48,7 +46,7 @@ def processing(x, freq, Z, window_size, step, rate, pad_size, notes, notes_name,
     """
 
     # Check if there is a sound to modified or just no sound/weak background noise
-    if not silence(x, THRESHOLD):
+    if not silence(x, SILENCE_THRESHOLD):
 
         # Zero Padding:
         x = np.pad(x, (0, pad_size), 'constant', constant_values=(0, 0))
@@ -189,7 +187,7 @@ def play(stream, chunk):
     stream.write(chunk)
 
 
-def silence(x, silence_threshold):
+def silence(x, silence_threshold=SILENCE_THRESHOLD):
     """
     Return boolean indicating if the window is silent (if max of abs(signal) is below the threshold)
     :param x: window signal
