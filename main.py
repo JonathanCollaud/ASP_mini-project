@@ -1,9 +1,11 @@
+import numpy as np
 import pyaudio
 import wave
-import numpy as np
-from methods import *
 import wavio
+
+from methods import *
 from settings import *
+
 np.set_printoptions(4, suppress=True)
 
 # Build notes vectors
@@ -75,7 +77,6 @@ Z = 1.0 + 0.0j
 
 # For loop that will read the input signal in chunk
 print("* start", flush=True)
-
 
 for i in range(0, n_iter + PARALLEL_WINDOWS-1):
     # If statement to avoid reading for the last iterations (corresponding to delay due to windowing
