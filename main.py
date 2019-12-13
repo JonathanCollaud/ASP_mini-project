@@ -101,7 +101,7 @@ for i in range(0, n_iter + PARALLEL_WINDOWS-1):
 
     # Processing
     window, Z = processing(window, freq, Z, WINDOW_SIZE, CHUNK_SIZE, RATE,
-               pad_size, notes, notes_str, i, plot=False)
+               pad_size, notes, notes_str, i, plot=plot_window)
 
     # Synthesis window
     window = np.asarray(w_s * window)

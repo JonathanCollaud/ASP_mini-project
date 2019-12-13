@@ -91,17 +91,21 @@ def processing(x, freq, Z, window_size, step, rate, pad_size, notes, notes_name,
         # To plot frequency domain of orignal and modified window signal
         # (SLOWS DOWN THE CODE A LOT, LIVE IMPOSSIBLE)
         if plot:
-            if i % 50 == 0:
+            if i % 100 == 0:
                 fig, (ax1, ax2) = plt.subplots(2, sharex=True, sharey=True)
-                xmin, xmax, ymin, ymax = 20, 20000, 200, 600000
+                xmin, xmax, ymin, ymax = 20, 5000, 200, 600000
                 ax1.set_xlim([xmin, xmax])
-                #ax1.set_ylim([ymin, ymax])
                 ax2.set_xlim([xmin, xmax])
-                #ax2.set_ylim([ymin, ymax])
                 ax1.plot(freq, np.abs(y))
                 ax1.plot(freq[peaks_idx], np.abs(y[peaks_idx]), 'o')
                 ax2.plot(freq, np.abs(y_new))
-                ax1.set_title('plot window')
+                ax2.set_xlabel('Frequency (Hz)')
+                ax1.set_ylabel('Amplitude')
+                ax2.set_ylabel('Amplitude')
+
+                ax1.set_title('Input window frequency spectrum')
+                ax2.set_title('Output window frequency spectrum')
+
                 plt.draw()
 
     # If considered as a silent window, just return original signal and reset phase coherency array to 1.0
