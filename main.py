@@ -43,7 +43,7 @@ if play_sound:
 if input_type=='sin':
     # Specify frequency of pure sin signal
     j = np.arange(RATE * RECORD_SECONDS)
-    signal = np.array(10000 * np.sin(2 * np.pi * f * j / RATE), dtype=np.int16)
+    signal = np.array(6000 * np.sin(2 * np.pi * f * j / RATE), dtype=np.int16)
     n_iter = int(signal.shape[0]/CHUNK_SIZE)
 
 
@@ -182,5 +182,6 @@ if plot_end:
     ax2.set_ylabel('Amplitude')
     plt.draw()
 
-    plt.show()
+
+plt.show()
 

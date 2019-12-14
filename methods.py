@@ -127,7 +127,7 @@ def shift_factor(y, freq, notes, notes_name):
     range_max = np.argmin(np.abs(freq - notes[-1]))
     peaks_idx, peaks_prop = find_peaks(np.abs(y[range_min:]),
                                        distance=80 / (freq[1] - freq[0]),
-                                       prominence=60000)
+                                       prominence=80000)
 
     # If peaks are detected, fundamental freq is lowest peak
     if peaks_idx.shape[0] > 0 and peaks_idx[0] < range_max-range_min:
@@ -227,8 +227,8 @@ def window(w_size, overlap=0.5, type='sine'):
     elif type == 'rect':
         w = overlap_factor * np.ones(w_size)
 
-    elif type == 'hamming':
-        w = np.hamming(w_size)
+    elif type == 'hamm':
+        w = overlap_factor * np.hamming(w_size)
 
     else:
         raise ValueError('Not valid window type')

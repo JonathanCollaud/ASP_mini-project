@@ -3,16 +3,16 @@ import numpy as np
 from methods import *
 
 # Define input type: 'mic', 'wav' or 'sin'
-input_type = 'sin'
+input_type = 'wav'
 
 # If input_type is wav, specify path to wav file
-wavefile_name = 'attention_1_false.wav'
+wavefile_name = 'tests/queen_F.wav'
 
 # If play sound live while recording/processing
 play_sound = False
 
 # Display or not the plot of time domain and frequency domain of full input and output signals
-plot_end = True
+plot_end = False
 
 # Plot some windows input and output frequency spectrum,
 # (every 100 iterations of main for loop, this can open a lot of matplotlib windows)
@@ -21,19 +21,22 @@ plot_end = True
 plot_window = False
 
 # Key: to shift towards notes that belong to the key
-KEY = 'A'
+# If want to use all notes: KEY='chromatic'
+KEY = 'F'
 
 # Window size and overlap
-
-WINDOW_SIZE = int(2048)
+WINDOW_SIZE = int(4096)
 WINDOW_OVERLAP = 0.75
 PARALLEL_WINDOWS = int(1 / (1 - WINDOW_OVERLAP))
 CHUNK_SIZE = int(WINDOW_SIZE * (1 - WINDOW_OVERLAP))
 
+# To specfiy amount of zero padding: change power of 2 for FFT_SIZE
 # Power of 2 = 0 :no padding, 1: half signal half zeros , 2: one quarter signal three quarters 0 ...
-FFT_SIZE = 2**0 * WINDOW_SIZE
+FFT_SIZE = 2**1 * WINDOW_SIZE
 
 # Window functions
+# Working couples: sine-sine, rect-hamm, rect-hann, hamm-rect, rect-hann
+# If overlap 0: rect-rect automatically set
 analysis_window_type = 'sine'
 synthesis_window_type = 'sine'
 
@@ -46,7 +49,7 @@ RATE = 44100
 SILENCE_THRESHOLD = 200
 
 # Recording time if input_type is mic
-RECORD_SECONDS = 2
+RECORD_SECONDS = 5
 
 # Sinus frequency if input_type is sin
 f = 466
@@ -54,7 +57,7 @@ f = 466
 # Output names
 if input_type == 'sin':
     WAVE_OUTPUT_FILENAME = "sin_" + str(f) + "_W" + str(WINDOW_SIZE) + "_FFT" + str(FFT_SIZE) + "_O" + \
-                           str(WINDOW_OVERLAP) + ".wav"
+                           str(WINDOW_OVERLAP) + '_w_ ' + analysis_window_type + '_' + synthesis_window_type + ".wav"
     WAVE_OUTPUT_FILENAME_NO_MODIF = "sin_" + str(f) + ".wav"
 elif input_type=='wav':
     WAVE_OUTPUT_FILENAME = wavefile_name + "_W" + str(WINDOW_SIZE) + "_FFT" + str(FFT_SIZE) + "_O" + \
