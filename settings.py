@@ -9,7 +9,7 @@ input_type = 'wav'
 wavefile_name = 'tests/queen_F.wav'
 
 # If play sound live while recording/processing
-play_sound = False
+play_sound = True
 
 # Display or not the plot of time domain and frequency domain of full input and output signals
 plot_end = False
@@ -27,8 +27,6 @@ KEY = 'F'
 # Window size and overlap
 WINDOW_SIZE = int(4096)
 WINDOW_OVERLAP = 0.75
-PARALLEL_WINDOWS = int(1 / (1 - WINDOW_OVERLAP))
-CHUNK_SIZE = int(WINDOW_SIZE * (1 - WINDOW_OVERLAP))
 
 # To specfiy amount of zero padding: change power of 2 for FFT_SIZE
 # Power of 2 = 0 :no padding, 1: half signal half zeros , 2: one quarter signal three quarters 0 ...
@@ -40,9 +38,7 @@ FFT_SIZE = 2**1 * WINDOW_SIZE
 analysis_window_type = 'sine'
 synthesis_window_type = 'sine'
 
-# Set basic information for audio
-FORMAT = pyaudio.paInt16
-CHANNELS = 1
+# Set audio rate in Hz
 RATE = 44100
 
 # Threshold for silence function

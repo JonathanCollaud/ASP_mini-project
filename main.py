@@ -8,6 +8,13 @@ from settings import *
 
 np.set_printoptions(4, suppress=True)
 
+# Parallel and chunk size
+PARALLEL_WINDOWS = int(1 / (1 - WINDOW_OVERLAP))
+CHUNK_SIZE = int(WINDOW_SIZE * (1 - WINDOW_OVERLAP))
+
+FORMAT = pyaudio.paInt16
+CHANNELS = 1
+
 # Build notes vectors
 notes, notes_str = build_notes_vector(KEY, 4)
 
