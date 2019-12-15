@@ -10,7 +10,7 @@ This pitch corrector algorithm is organised in three python files:
 
 To launch the program, simply use the following command:
 
-`python main.py
+`python main.py`
 
 ##### Advice for the settings:
 If using mic as input_type, put headphones, there is no larsen protection
