@@ -5,10 +5,11 @@ from methods import *
 # Define input type: 'mic', 'wav' or 'sin'
 input_type = 'wav'
 
-# If input_type is wav, specify path to wav file
+# If input_type is wav, specify path to a wav file
 wavefile_name = 'tests/queen_F.wav'
 
 # If play sound live while recording/processing
+# If using mic input: no feedback protection, use headphones
 play_sound = True
 
 # Display or not the plot of time domain and frequency domain of full input and output signals
@@ -24,16 +25,19 @@ plot_window = False
 # If want to use all notes: KEY='chromatic'
 KEY = 'F'
 
-# Window size and overlap
+# Window size (usually a power of two between 1024 and 8192)
 WINDOW_SIZE = int(4096)
+
+# Overlap: 0 ,0.5 or 0.75
 WINDOW_OVERLAP = 0.75
 
 # To specfiy amount of zero padding: change power of 2 for FFT_SIZE
 # Power of 2 = 0 :no padding, 1: half signal half zeros , 2: one quarter signal three quarters 0 ...
+# Good FFT size: 4096 or 8192
 FFT_SIZE = 2**1 * WINDOW_SIZE
 
 # Window functions
-# Working couples: sine-sine, rect-hamm, rect-hann, hamm-rect, rect-hann
+# Best setup: sine-sine
 # If overlap 0: rect-rect automatically set
 analysis_window_type = 'sine'
 synthesis_window_type = 'sine'
@@ -44,7 +48,7 @@ RATE = 44100
 # Threshold for silence function
 SILENCE_THRESHOLD = 200
 
-# Recording time if input_type is mic
+# Recording time if input_type is mic or sin
 RECORD_SECONDS = 5
 
 # Sinus frequency if input_type is sin
